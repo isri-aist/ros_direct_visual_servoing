@@ -1,0 +1,8 @@
+<launch>
+  
+  <node name="pvsCaptureAndSaveDesired" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pvsCaptureAndSaveDesired"/>
+  <param name="cameraTopic" type="string" value="/camera/image_mono"/>
+  <param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
+
+</launch>
+
