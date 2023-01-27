@@ -157,6 +157,11 @@ add_executable(${PROJECT_NAME}_pvsCaptureAndSaveDesired src/photometric-visual-s
 
 target_link_libraries(${PROJECT_NAME}_pvsCaptureAndSaveDesired ${catkin_LIBRARIES})
 
+#creates the visual servoer for PVS
+add_executable(${PROJECT_NAME}_pvsVisualServoing src/photometric-visual-servoing/pvsVisualServoing.cpp src/photometric-visual-servoing/pvsPhotometricVisualServoing.cpp)
+
+target_link_libraries(${PROJECT_NAME}_pvsVisualServoing ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
