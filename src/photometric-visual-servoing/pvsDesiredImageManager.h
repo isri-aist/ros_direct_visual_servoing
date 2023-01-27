@@ -31,14 +31,6 @@ private:
 
     std::ofstream m_logfile;
     string m_logs_path;
-    string m_data_path;
-
-		/*
-    vpDisplayX m_display_current_image;
-    vpDisplayX m_display_desired_image;
-    vpDisplayX m_display_error;
-    VisualServoTools m_visual_servo_tools;
-		*/
 
 };
 

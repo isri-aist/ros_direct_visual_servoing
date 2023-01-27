@@ -11,11 +11,9 @@ pvsDesiredImageManager::pvsDesiredImageManager()
     string cameraTopic;
     m_nh.param("CameraTopic", cameraTopic, string(""));
     m_nh.param("logs", m_logs_path, string(""));
-    m_nh.param("data", m_data_path,string(""));
 
     m_nh.getParam("logs", m_logs_path);
     m_nh.getParam("cameraTopic", cameraTopic);
-    m_nh.getParam("data", m_data_path);
     
     stringstream str;
     str<<m_logs_path<<"logfile.txt";
