@@ -3,7 +3,6 @@
 #include <visp/vpIoTools.h>
 #include <visp/vpImageIo.h>
 
-
 pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
     : m_it(m_nh), m_iter(-1), vsInitialized(false), m_height(0), m_width(0), m_sceneDepth(1.0), m_v(6), m_normError(1e12)
 {
@@ -68,6 +67,12 @@ pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
 }
 
 pvsPhotometricVisualServoing::~pvsPhotometricVisualServoing()
+{
+  stopRobot();
+}
+
+void
+pvsPhotometricVisualServoing::stopRobot()
 {
 	m_velocity.linear.x = 0;
 	m_velocity.linear.y = 0;

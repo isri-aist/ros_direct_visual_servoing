@@ -31,6 +31,8 @@ public:
     void toolPoseCallback(const tf2_msgs::TFMessage& tf); 
 		vpHomogeneousMatrix toVispHomogeneousMatrix(const tf2_msgs::TFMessage& trans);   
 
+		void stopRobot();
+
 private:
 
     ros::NodeHandle m_nh;
