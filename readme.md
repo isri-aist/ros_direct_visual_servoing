@@ -21,7 +21,20 @@ Tested under `Ubuntu 20.04` and `ROS Noetic`
 
 ## How to run
 
-Example with UR10 robot equipped with a Flir camera with Yakumo lens:
+# Example with launching several nodes from the same launch file with UR10 robot equipped with a Flir camera with Computar lens:
+
+After creating a directory `ros_dvs_bridge` in your directory `$HOME/.ros`
+
+Terminal 1: run `roscore`
+
+Terminal 2: run the robot driver with `roslaunch ur_robot_driver ur10_bringup.launch robot_ip:=192.168.1.3 \ kinematics_config:=$(HOME)/AIST_UR10_robot_calibration.yaml`
+
+Terminal 2: 
+- to run the camera node, the image resize x0.5 and the desired image capture (this doesn't need the robot driver to run): `roslaunch ros_dvs_bridge pvsCaptureAndSaveDesired_FL3-U3_resize0p5.launch`
+- to run the camera node, the image resize x0.5 (for higher control rate) and visual servoing: `roslaunch ros_dvs_bridge pvsPhotometricVisualServoing_UR10_FL3-U3_resize0p5.launch`
+
+
+# Example with launching each node separately with UR10 robot equipped with a Flir camera with Yakumo lens:
 
 After creating a directory `ros_dvs_bridge` in your directory `$HOME/.ros`
 
@@ -36,6 +49,8 @@ Terminal 4:
 - to run the visual servoing: `roslaunch ros_dvs_bridge pvsPhotometricVisualServoing_UR10.launch`
 
 
-Note: to stop the robot from another terminal `rostopic pub -1 /twist_controller/command geometry_msgs/Twist -- '[0.0, 0.0, 0.0]' '[0.0, 0.0, 0.0]'`
+# Note: to stop the robot from another terminal
+
+`rostopic pub -1 /twist_controller/command geometry_msgs/Twist -- '[0.0, 0.0, 0.0]' '[0.0, 0.0, 0.0]'`
 
 
