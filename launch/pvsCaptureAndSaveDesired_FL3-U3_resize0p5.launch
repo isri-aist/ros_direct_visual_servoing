@@ -91,12 +91,14 @@
     </node>
   </group>
 
+  <!-- Resize the captured images to reduce the processing time -->
   <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize">
     <remap from="image" to="/camera/image_mono" />
     <param name="scale_width" value="0.5" />
     <param name="scale_height" value="0.5" />
   </node>
 
+  <!-- Start the desired image saving node for photometric visual servoing -->  
   <node name="pvsCaptureAndSaveDesired" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pvsCaptureAndSaveDesired"/> <!-- launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "> -->
     <param name="cameraTopic" type="string" value="/image_resize/image"/>
     <param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
