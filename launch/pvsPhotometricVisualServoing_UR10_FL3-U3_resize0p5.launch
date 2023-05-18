@@ -102,6 +102,7 @@
   <node name="pvsPhotometricVisualServoing" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pvsVisualServoing"/>
   	<param name="cameraTopic" type="string" value="/image_resize/image"/> 
   	<param name="robotTopic" type="string" value="/twist_controller/command"/> 
+  	<param name="diffTopic" type="string" value="/pvs/diff_image"/> 
 
   	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
 

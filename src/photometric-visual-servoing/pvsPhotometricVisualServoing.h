@@ -30,6 +30,7 @@ public:
 
     void toolPoseCallback(const tf2_msgs::TFMessage& tf); 
 		vpHomogeneousMatrix toVispHomogeneousMatrix(const tf2_msgs::TFMessage& trans);   
+		int errorToImage(vpColVector &e, vpImage<unsigned char> &m_diff_image);
 
 		void stopRobot();
 
@@ -38,12 +39,14 @@ private:
     ros::NodeHandle m_nh;
     image_transport::ImageTransport m_it;
     image_transport::Subscriber m_image_sub;
+    image_transport::Publisher m_diff_pub;
 		ros::Publisher m_velocity_pub;
 
 		ros::Subscriber m_camPose_sub; 
 		vpVelocityTwistMatrix m_bVc;
 
 		geometry_msgs::Twist m_velocity;
+		sensor_msgs::Image m_diff;
 
     vpImage<unsigned char> m_desired_image;
 		vpImage<unsigned char> m_current_image;
@@ -67,6 +70,7 @@ private:
     int m_iter;
 		bool vsInitialized;
 		bool m_controlInBaseFrame;
+		bool m_pub_diffImage;
 
     std::ofstream m_logfile;
 #ifdef INDICATORS

@@ -4,13 +4,14 @@
 #include <visp/vpImageIo.h>
 
 pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
-    : m_it(m_nh), m_iter(-1), vsInitialized(false), m_height(0), m_width(0), m_sceneDepth(1.0), m_v(6), m_normError(1e12)
+    : m_it(m_nh), m_iter(-1), vsInitialized(false), m_height(0), m_width(0), m_sceneDepth(1.0), m_v(6), m_normError(1e12), m_pub_diffImage(false)
 {
-    string cameraTopic, robotTopic, cameraPoseTopic;
+    string cameraTopic, robotTopic, cameraPoseTopic, diffTopic;
 		double f, ku;
 
-    m_nh.param("CameraTopic", cameraTopic, string(""));
+    m_nh.param("cameraTopic", cameraTopic, string(""));
 		m_nh.param("robotTopic", robotTopic, string(""));
+		m_nh.param("diffTopic", diffTopic, string(""));
     m_nh.param("logs", m_logs_path, string(""));
     m_nh.param("lambda", m_lambda, double(1.0));
     m_nh.param("focal", f, double(1.0));
@@ -64,6 +65,12 @@ pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
     m_image_sub = m_it.subscribe(cameraTopic, 1, &pvsPhotometricVisualServoing::imageCallback, this);
 
 		m_velocity_pub = m_nh.advertise<geometry_msgs::Twist>(robotTopic, 1);
+		
+		if(diffTopic.compare("") != 0)
+		{
+			m_diff_pub = m_it.advertise(diffTopic, 1);
+			m_pub_diffImage = true;
+		}
 }
 
 pvsPhotometricVisualServoing::~pvsPhotometricVisualServoing()
@@ -111,6 +118,8 @@ pvsPhotometricVisualServoing::initVisualServoTask()
     sI.init(m_height, m_width, m_sceneDepth);
     sI.setCameraParameters(m_cam);
     sI.buildFrom(m_current_image);
+    
+    m_difference_image.resize(m_height, m_width, true);
 
     // Create visual-servoing task
     // define the task
@@ -162,8 +171,18 @@ void pvsPhotometricVisualServoing::imageCallback(const sensor_msgs::ImageConstPt
       m_velocity.angular.z = m_v[5];
     	m_velocity_pub.publish(m_velocity);
 
-      m_normError = servo.getError().sumSquare();
-
+			vpColVector e = servo.getError();
+      m_normError = e.sumSquare();
+      
+      if(m_pub_diffImage)
+      {
+      	if(errorToImage(e, m_difference_image) == 0)
+      	{
+      		m_diff = visp_bridge::toSensorMsgsImage(m_difference_image);
+      		m_diff_pub.publish(m_diff);
+      	}
+			}
+			
 #ifdef INDICATORS
 			m_times << vpTime::measureTimeMs() - duration << " ms" << std::endl;
 
@@ -226,5 +245,24 @@ pvsPhotometricVisualServoing::toVispHomogeneousMatrix(const tf2_msgs::TFMessage&
 	mat.buildFrom(vec,rmat);
 
 	return mat;
+}
+
+int pvsPhotometricVisualServoing::errorToImage(vpColVector &e, vpImage<unsigned char> &m_diff_image)
+{
+	if((m_diff_image.getHeight() != m_height) || (m_diff_image.getWidth() != m_width))
+		return -1;
+
+	double *pt_e = e.data;	
+	unsigned char *pt_Idiff;
+	unsigned int bord = 10; //protected but always 10 in vpFeatureLuminance
+	//for(unsigned int i = 0 ; i < e.size() ; i++, pt_Idiff++, pt_e++)
+	for (unsigned int i = bord; i < m_height - bord; i++)
+	{
+		pt_Idiff = &(m_diff_image[i][bord]);
+    for (unsigned int j = bord; j < m_width - bord; j++, pt_Idiff++, pt_e++)
+			*pt_Idiff = (*pt_e + 255) * 0.5;
+	}
+	
+	return 0;
 }
 
