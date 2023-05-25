@@ -106,7 +106,7 @@
 
   	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
 
-    <param name="lambda" type="double" value="0.7"/> 
+    <param name="lambda" type="double" value="1.0"/> 
     <param name="focal" type="double" value="0.008"/> 
 # In case the sensor is used at full resolution 
 #	  <param name="pixelSize" type="double" value="0.0000052"/> # photodiode size of FL3-U...
