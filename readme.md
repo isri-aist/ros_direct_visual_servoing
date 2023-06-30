@@ -31,7 +31,7 @@ After creating a directory `ros_dvs_bridge` in your directory `$HOME/.ros`
 
 Terminal 1: run `roscore`
 
-Terminal 2: run the robot driver with `roslaunch ur_robot_driver ur10_bringup.launch robot_ip:=192.168.1.3 \ kinematics_config:=$HOME/AIST_UR10_robot_calibration.yaml`, then run the External Control URCap on the robot controller
+Terminal 2: run the robot driver with `roslaunch ur_robot_driver ur10_bringup.launch robot_ip:=192.168.1.3 \ kinematics_config:=$HOME/AIST_UR10_robot_calibration.yaml`, then run the External Control URCap by running the 'externalControl7' program from the teach pendent of the robot.
 
 Terminal 3: 
 - to run the camera node, the image resize x0.5 and the desired image capture (this doesn't need the robot driver to run): `roslaunch ros_dvs_bridge pvsCaptureAndSaveDesired_FL3-U3_resize0p5.launch`
