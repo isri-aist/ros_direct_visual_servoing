@@ -46,7 +46,7 @@ Terminal 1: run `roscore`
 
 Terminal 2: run the camera node with `roslaunch spinnaker_camera_driver camera.launch`
 
-Terminal 3: run the robot driver with `roslaunch ur_robot_driver ur10_bringup.launch robot_ip:=192.168.1.3 \ kinematics_config:=$HOME/AIST_UR10_robot_calibration.yaml`, then run the External Control URCap on the robot controller
+Terminal 3: run the robot driver with `roslaunch ur_robot_driver ur10_bringup.launch robot_ip:=192.168.1.3 \ kinematics_config:=$HOME/AIST_UR10_robot_calibration.yaml`, then run the External Control URCap by running the 'externalControl7' program from the teach pendent of the robot.
 
 Terminal 4:
 - to run the desired image capture (this doesn't need the robot driver to run): `roslaunch ros_dvs_bridge pvsCaptureAndSaveDesired.launch`
