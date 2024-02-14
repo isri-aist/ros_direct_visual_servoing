@@ -175,7 +175,7 @@ if(${USE_PER})
 	  include(${PER_USE_FILE})
   endif(PER_FOUND)
 
-  find_package(VISP REQUIRED)
+  #find_package(VISP REQUIRED)
 
   add_executable(${PROJECT_NAME}_pgmvsVisualServoing src/PGM-visual-servoing/pgmvsVisualServoing.cpp src/PGM-visual-servoing/pgmvsPGMVisualServoing.cpp)
 

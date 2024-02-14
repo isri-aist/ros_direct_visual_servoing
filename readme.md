@@ -20,7 +20,7 @@ Tested under `Ubuntu 20.04` and `ROS Noetic`
 - `Universal_Robots_ROS_Driver`: to use UR10 robot (`https://github.com/UniversalRobots/Universal_Robots_ROS_Driver`, checkout commit `ca2b11cdaf0233d59d1fe3e4c25a4a844331ec07` to work with the 3.7 old version of Polyscope still within the UR10 controller)
 
 ## external libraries
-- `libPeR`: to use the PGM VS (`https://github.com/PerceptionRobotique/libPeR`). When running `catkin_make`, mind to pass the additional `cmake` parameters  `-DPER_DIR=/path/to/libPeR/install/dir` to allow finding the libPeR library and `-DUSE_PER=True` to make use of libPeR (otherwise PGM VS will not be available).
+- `libPeR`: to use the PGM VS (`https://github.com/PerceptionRobotique/libPeR`). When running `catkin_make`, mind to pass the additional `cmake` parameters `-DUSE_PER=True` to make use of libPeR (otherwise PGM VS will not be available) and `-DPER_DIR=/path/to/libPeR/install/dir` to allow finding the libPeR library (in that order).
 
 ## How to run
 
