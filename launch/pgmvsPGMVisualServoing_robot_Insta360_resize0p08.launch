@@ -1,0 +1,37 @@
+<launch>
+  <!-- Start the camera and settings -->
+    <!-- Start the camera and settings -->
+  <include file="$(find insta360)/launch/bringup.launch"/>
+  
+  <!-- Resize the captured images to reduce the processing time -->
+  <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize" output="screen">
+  	<remap from="image" to="/insta360/equi/image_raw" />
+  	<param name="scale_width" value="0.08" />
+  	<param name="scale_height" value="0.08" />
+  </node>
+
+  <!-- Start the photometric visual servoing node for a specific camera-->  
+  <node name="pgmvsPGMVisualServoing" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pgmvsVisualServoing"/>
+  	<param name="cameraTopic" type="string" value="/image_resize/image"/> 
+  	<param name="robotTopic" type="string" value="/twist_controller/command"/> 
+  	<param name="diffTopic" type="string" value="/pgmvs/diff_image"/>
+    <param name="featuresDiffTopic" type="string" value="/pgmvs/diff_features"/>
+    <param name="featuresImageTopic" type="string" value="/pgmvs/image_features"/>
+    <param name="desiredFeaturesImageTopic" type="string" value="/pgmvs/desired_image_features"/>
+
+    <param name="cameraType" type="int" value="4"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
+    <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/calib_equi_184_92.xml"/>
+    <param name="lambda_g" type="double" value="3.0"/> 
+
+  	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
+
+    <param name="lambda" type="double" value="1.0"/> 
+    
+    <param name="sceneDepth" type="double" value="1.0"/> 
+
+    <param name="controlInBaseFrame" type="bool" value="false"/>
+    <param name="cameraPoseTopic" type="string" value="/tf"/>
+  <!-- </node> -->
+
+</launch>
+

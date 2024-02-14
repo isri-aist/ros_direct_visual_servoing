@@ -19,6 +19,9 @@ Tested under `Ubuntu 20.04` and `ROS Noetic`
 
 - `Universal_Robots_ROS_Driver`: to use UR10 robot (`https://github.com/UniversalRobots/Universal_Robots_ROS_Driver`, checkout commit `ca2b11cdaf0233d59d1fe3e4c25a4a844331ec07` to work with the 3.7 old version of Polyscope still within the UR10 controller)
 
+## external libraries
+- `libPeR`: to use the PGM VS (`https://github.com/PerceptionRobotique/libPeR`). When running `catkin_make`, mind to pass the additional `cmake` parameters  `-DPER_DIR=/path/to/libPeR/install/dir` to allow finding the libPeR library and `-DUSE_PER=True` to make use of libPeR (otherwise PGM VS will not be available).
+
 ## How to run
 
 Prior to using the UR10 robot, one must gets its calibration file:
@@ -33,10 +36,15 @@ Terminal 1: run `roscore`
 
 Terminal 2: run the robot driver with `roslaunch ur_robot_driver ur10_bringup.launch robot_ip:=192.168.1.3 \ kinematics_config:=$HOME/AIST_UR10_robot_calibration.yaml`, then run the External Control URCap on the robot controller
 
+#### For Photometric VS
 Terminal 3: 
 - to run the camera node, the image resize x0.5 and the desired image capture (this doesn't need the robot driver to run): `roslaunch ros_dvs_bridge pvsCaptureAndSaveDesired_FL3-U3_resize0p5.launch`
 - to run the camera node, the image resize x0.5 (for higher control rate) and visual servoing: `roslaunch ros_dvs_bridge pvsPhotometricVisualServoing_UR10_FL3-U3_resize0p5.launch`
 
+#### For PGM VS
+Terminal 3: 
+- to run the camera node, the image resize x0.08 and the desired image capture (this doesn't need the robot driver to run): `roslaunch ros_dvs_bridge pgmvsCaptureAndSaveDesired_Insta360_resize0p08.launch`
+- to run the camera node, the image resize x0.08 (for higher control rate) and visual servoing: `roslaunch ros_dvs_bridge pgmvsPGMVisualServoing_robot_Insta360_resize0p08.launch`
 
 ### Example with launching each node separately with UR10 robot equipped with a Flir camera with Yakumo lens:
 

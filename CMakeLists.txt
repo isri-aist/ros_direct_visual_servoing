@@ -162,6 +162,29 @@ add_executable(${PROJECT_NAME}_pvsVisualServoing src/photometric-visual-servoing
 
 target_link_libraries(${PROJECT_NAME}_pvsVisualServoing ${catkin_LIBRARIES})
 
+
+#creates the desired image saver for PGMVS
+add_executable(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired src/PGM-visual-servoing/pgmvsCaptureAndSaveDesired.cpp src/PGM-visual-servoing/pgmvsDesiredImageManager.cpp)
+
+target_link_libraries(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired ${catkin_LIBRARIES})
+
+#creates the visual servoer for PGMVS
+if(${USE_PER})
+  find_package(PER REQUIRED per_core per_io per_features per_sensor_pose_estimation per_estimation)
+  if(PER_FOUND)
+	  include(${PER_USE_FILE})
+  endif(PER_FOUND)
+
+  find_package(VISP REQUIRED)
+
+  add_executable(${PROJECT_NAME}_pgmvsVisualServoing src/PGM-visual-servoing/pgmvsVisualServoing.cpp src/PGM-visual-servoing/pgmvsPGMVisualServoing.cpp)
+
+  target_link_libraries(${PROJECT_NAME}_pgmvsVisualServoing ${catkin_LIBRARIES})
+endif()
+
+SET(USE_PER FALSE CACHE BOOL "Sets the use of libPeR" FORCE)
+
+
 #############
 ## Install ##
 #############
