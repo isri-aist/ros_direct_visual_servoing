@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<root>
+  <!--PR team of the MIS lab - UPJV - France-->
+    <camera>
+      <!--Name of the camera-->
+      <name>Equirectangular</name>
+      <!--Type of the camera-->
+      <type>4</type>
+      <!--Pixel ratio-->
+      <au>43.926764293</au>
+      <av>43.926764293</av>
+      <!--Principal point-->
+      <u0>138.0000000000</u0>
+      <v0>69.0000000000</v0>
+    </camera>
+</root>

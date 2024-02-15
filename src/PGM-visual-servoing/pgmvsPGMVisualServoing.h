@@ -84,7 +84,7 @@ private:
 		vpImage<unsigned char> m_difference_pgm;
 
 
-
+		ros::Time t;
 
 		double m_mu;
     double m_lambda;

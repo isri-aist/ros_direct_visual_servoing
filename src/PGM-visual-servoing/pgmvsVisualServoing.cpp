@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "pgmvsPGMVisualServoing");
 		prog = new pgmvsPGMVisualServoing();
 		signal(SIGINT, mySigintHandler);
+    ros::Rate loop_rate(100);
     ros::spin();
     return 0;
 }

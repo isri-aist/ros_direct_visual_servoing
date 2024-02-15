@@ -1,12 +1,12 @@
 <launch>
   <!-- Start the camera and settings -->
-  <include file="$(find insta360)/launch/bringup.launch"/>
+ <!-- <include file="$(find insta360)/launch/bringup.launch"/> -->
   
   <!-- Resize the captured images to reduce the processing time -->
   <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize" output="screen">
-  	<remap from="image" to="/insta360/equi/image_raw" />
-  	<param name="scale_width" value="0.16" />
-  	<param name="scale_height" value="0.16" />
+    <remap from="image" to="/insta360/equi/image_raw" />
+    <param name="scale_width" value="0.16" />
+    <param name="scale_height" value="0.16" />
   </node>
 
   <!-- Start the robot and bridge -->
@@ -23,11 +23,11 @@
 
     <param name="cameraType" type="int" value="4"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
     <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/calib_equi_184_92.xml"/>
-    <param name="lambda_g" type="double" value="0.33"/> 
+    <param name="lambda_g" type="double" value="1.91"/> 
 
   	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
 
-    <param name="lambda" type="double" value="0.1"/> 
+    <param name="lambda" type="double" value="0.5"/> 
     
     <param name="sceneDepth" type="double" value="0.5"/> 
 

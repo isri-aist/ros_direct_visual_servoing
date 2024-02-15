@@ -257,10 +257,15 @@ pgmvsPGMVisualServoing::initVisualServoTask()
     vsInitialized = false;
   }
 
+  t = ros::Time::now();
+
 }
 
 void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &image)
 {
+	if(image->header.stamp <= t)
+		return;
+
 	if(vsInitialized)
 	{
     	m_iter++;
@@ -302,6 +307,8 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 			m_velocity.angular.y = m_v6[4];
 			m_velocity.angular.z = m_v6[5];
 			m_velocity_pub.publish(m_velocity);
+
+			t = ros::Time::now();
 			
 			if(m_pub_featuresImage)
 			{

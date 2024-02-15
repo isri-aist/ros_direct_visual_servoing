@@ -1,9 +1,9 @@
 <launch>
   <!-- Start the camera and settings -->
-  <include file="$(find insta360)/launch/bringup.launch"/>
+  <!-- <include file="$(find insta360)/launch/bringup.launch"/> -->
 
   <!-- Resize the captured images to reduce the processing time -->
-  <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize">
+  <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize" output="screen">
     <remap from="image" to="/insta360/equi/image_raw" />
     <param name="scale_width" value="0.16" />
     <param name="scale_height" value="0.16" />
