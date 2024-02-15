@@ -5,8 +5,8 @@
   <!-- Resize the captured images to reduce the processing time -->
   <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize">
     <remap from="image" to="/insta360/equi/image_raw" />
-    <param name="scale_width" value="0.08" />
-    <param name="scale_height" value="0.08" />
+    <param name="scale_width" value="0.16" />
+    <param name="scale_height" value="0.16" />
   </node>
 
   <!-- Start the desired image saving node for photometric visual servoing -->  

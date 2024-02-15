@@ -6,7 +6,8 @@
 
 pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     : m_it(m_nh), m_iter(-1), vsInitialized(false), m_height(0), m_width(0), m_sceneDepth(1.0), 
-	  m_v(6), m_v6(6), m_normError(1e12), m_pub_diffImage(false), _camera(nullptr),
+	  m_v(6), m_v6(6), m_normError(1e12), m_pub_diffImage(false),  m_pub_diffFeaturesImage(false),
+	  m_pub_featuresImage(false), m_pub_desiredFeaturesImage(false), _camera(nullptr),
 	  updateSampler(true), poseJacobianCompute(true), robust(false),
 	  nbDOF(6)
 {
@@ -56,6 +57,10 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 		m_camPose_sub = m_nh.subscribe(cameraPoseTopic, 1, &pgmvsPGMVisualServoing::toolPoseCallback, this);
 	}
 
+    stringstream str;
+    str<<m_logs_path<<"logfile.txt";
+    m_logfile.open(str.str().c_str());
+
 	switch(camtyp)
 	{
 		case Omni:
@@ -66,6 +71,8 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     		prOmniXML fromFile(camxml.c_str());
 
 			fromFile >> (*((prOmni *)_camera));
+			m_logfile<<"prOmni: "<<_camera->getau()<<endl;
+
 			break;
 		}
 		case Equirectangular:
@@ -76,6 +83,9 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 			prEquirectangularXML fromFile(camxml.c_str());
 
 			fromFile >> (*((prEquirectangular*)_camera));
+
+			m_logfile<<"prEquirectangular: "<<_camera->getau()<<endl;
+
 			break;
 		}
 		case Persp:
@@ -87,16 +97,12 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 			prPerspectiveXML fromFile(camxml.c_str());
 
 			fromFile >> (*((prPerspective*)_camera));
+			m_logfile<<"prPerspective: "<<_camera->getau()<<endl;
 			break;
 		}
 		default:
-			ROS_INFO("camera model not considered");
+			m_logfile<<"camera model not considered"<<endl;
 	}
-
-    
-    stringstream str;
-    str<<m_logs_path<<"logfile.txt";
-    m_logfile.open(str.str().c_str());
 
 #ifdef INDICATORS
 	str.str("");
@@ -181,15 +187,15 @@ pgmvsPGMVisualServoing::initVisualServoTask()
 
     	// desired visual feature built from the image
 		//prepare the desired image 
-    	IP_des.reset(m_height, m_width); //the regularly sample planar image to be set from the acquired/loaded perspective image
-    	IP_des.setInterpType(INTERPTYPE);
-    	IP_des.buildFrom(m_desired_image, _camera); 
+    	IP_des = new prRegularlySampledCPImage<unsigned char>(m_height, m_width); //the regularly sample planar image to be set from the acquired/loaded perspective image
+    	IP_des->setInterpType(INTERPTYPE);
+    	IP_des->buildFrom(m_desired_image, _camera); 
 
-    	GP.reset(m_height, m_width); //contient tous les pr2DCartesianPointVec (ou prFeaturePoint) u_g et fera GS_sample.buildFrom(IP_des, u_g);
+    	GP = new prRegularlySampledCPImage<float>(m_height, m_width); //contient tous les pr2DCartesianPointVec (ou prFeaturePoint) u_g et fera GS_sample.buildFrom(IP_des, u_g);
 
-    	GP_sample_des=prPhotometricnnGMS<prCartesian2DPointVec>(m_lambda_g);
+    	GP_sample_des = new prPhotometricnnGMS<prCartesian2DPointVec>(m_lambda_g);
 
-    	fSet_des.buildFrom(IP_des, GP, GP_sample_des, false, true); // Goulot !
+    	fSet_des.buildFrom(*IP_des, *GP, *GP_sample_des, false, true); // Goulot !
 
 		m_logfile << "des built" << endl;
 		if(m_pub_diffFeaturesImage || m_pub_desiredFeaturesImage)
@@ -215,17 +221,17 @@ pgmvsPGMVisualServoing::initVisualServoTask()
    		// current visual feature built from the image
 		m_current_image = m_desired_image;
 
-		GP_sample=prPhotometricnnGMS<prCartesian2DPointVec>(m_lambda_g);
+		GP_sample = new prPhotometricnnGMS<prCartesian2DPointVec>(m_lambda_g);
 
 		// Current features set setting from the current image
-    	IP_cur.reset(m_height, m_width);
-    	IP_cur.setInterpType(INTERPTYPE);
-    	IP_cur.buildFrom(m_current_image, _camera); 
+    	IP_cur = new prRegularlySampledCPImage<unsigned char>(m_height, m_width);
+    	IP_cur->setInterpType(INTERPTYPE);
+    	IP_cur->buildFrom(m_current_image, _camera); 
         
-    	fSet_cur.buildFrom(IP_cur, GP, GP_sample, poseJacobianCompute, updateSampler); // Goulot !
+    	fSet_cur.buildFrom(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler); // Goulot !
 
 		m_logfile << "cur built " << m_height << " " << m_width << endl;
-		if(m_pub_diffFeaturesImage)
+		if(m_pub_diffFeaturesImage || m_pub_featuresImage)
 		{
 			PGM_cur_f.resize(m_height, m_width, true);
 			PGM_cur_u.resize(m_height, m_width, true);
@@ -233,12 +239,17 @@ pgmvsPGMVisualServoing::initVisualServoTask()
 			vpImageConvert::convert(PGM_cur_f, PGM_cur_u);
 
 			m_logfile << "convert cur " << PGM_cur_u.getWidth() << " " << PGM_cur_u.getHeight() << endl;
-    
+		}
+
+    	if(m_pub_diffFeaturesImage)
+		{
 			m_difference_pgm.resize(m_height, m_width, true);
 		}
 
 		if(m_pub_diffImage)
+		{
 			m_difference_image.resize(m_height, m_width, true);
+		}
 
 		vsInitialized = true;
 	} catch (const vpException &e) {
@@ -263,8 +274,8 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 		if((m_current_image.getHeight() == m_height) && (m_current_image.getWidth() == m_width))
 		{
 			// Compute current visual feature
-			IP_cur.buildFrom(m_current_image, _camera); 
-			fSet_cur.updateMeasurement(IP_cur, GP, GP_sample, poseJacobianCompute, updateSampler);  
+			IP_cur->buildFrom(m_current_image, _camera); 
+			fSet_cur.updateMeasurement(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler);  
 			m_logfile << "cur updated" << endl;
 
 			//Compute control vector

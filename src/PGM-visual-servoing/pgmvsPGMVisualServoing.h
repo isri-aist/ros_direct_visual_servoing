@@ -96,14 +96,14 @@ private:
 
 		
 		// desired visual features for visual servoing
-		prRegularlySampledCPImage<unsigned char> IP_des;
-		prRegularlySampledCPImage<float> GP;
+		prRegularlySampledCPImage<unsigned char> *IP_des;
+		prRegularlySampledCPImage<float> *GP;
     	prFeaturesSet<prCartesian2DPointVec, prPhotometricnnGMS<prCartesian2DPointVec>, prRegularlySampledCPImage > fSet_des;
-		prPhotometricnnGMS<prCartesian2DPointVec> GP_sample_des;
+		prPhotometricnnGMS<prCartesian2DPointVec> *GP_sample_des;
 
     	// current visual features for visual servoing
-		prPhotometricnnGMS<prCartesian2DPointVec> GP_sample;
-		prRegularlySampledCPImage<unsigned char> IP_cur;
+		prPhotometricnnGMS<prCartesian2DPointVec> *GP_sample;
+		prRegularlySampledCPImage<unsigned char> *IP_cur;
 		prFeaturesSet<prCartesian2DPointVec, prPhotometricnnGMS<prCartesian2DPointVec>, prRegularlySampledCPImage > fSet_cur;
 
     	prCameraPoseEstim<prFeaturesSet<prCartesian2DPointVec, prPhotometricnnGMS<prCartesian2DPointVec>, prRegularlySampledCPImage >, 
