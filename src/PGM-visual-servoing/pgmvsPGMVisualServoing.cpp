@@ -4,6 +4,10 @@
 #include <visp/vpImageIo.h>
 #include <visp/vpImageTools.h>
 
+#include <geometry_msgs/PoseStamped.h>
+
+#include <filesystem>
+
 pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     : m_it(m_nh), m_iter(-1), vsInitialized(false), m_height(0), m_width(0), m_sceneDepth(1.0), 
 	  m_v(6), m_v6(6), m_normError(1e12), m_pub_diffImage(false),  m_pub_diffFeaturesImage(false),
@@ -11,7 +15,7 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 	  updateSampler(true), poseJacobianCompute(true), robust(false),
 	  nbDOF(6)
 {
-    string cameraTopic, robotTopic, cameraPoseTopic, diffTopic, featuresDiffTopic, camxml;
+    string cameraTopic, robotTopic, cameraPoseTopic, diffTopic, featuresDiffTopic, camxml, cam2tool;
 	string desiredFeaturesImageTopic, featuresImageTopic;
 	double f, ku;
 	int camtyp;	
@@ -24,14 +28,15 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 	m_nh.param("desiredFeaturesImageTopic", desiredFeaturesImageTopic, string(""));
     m_nh.param("logs", m_logs_path, string(""));
     m_nh.param("lambda", m_lambda, double(1.0));
-    
 	m_nh.param("cameraType", camtyp, int(1)); //1: Perspective (same numbering as libPeR's CameraModelType)
     m_nh.param("cameraXml", camxml, string(""));
+	m_nh.param("camera2tool", cam2tool, string(""));
 	m_nh.param("lambda_g", m_lambda_g, double(1.0));
-
     m_nh.param("sceneDepth", m_sceneDepth, double(1.0));
     m_nh.param("controlInBaseFrame", m_controlInBaseFrame, false);
     m_nh.param("cameraPoseTopic", cameraPoseTopic, string(""));
+	m_nh.param("rosbagForEVS", m_rosbagForEVS, false);
+    m_nh.param("currentPoseTopicForEVS", m_currentPoseTopicForEVS, string(""));
 
     m_nh.getParam("cameraTopic", cameraTopic);
     m_nh.getParam("robotTopic", robotTopic);
@@ -43,23 +48,36 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     m_nh.getParam("lambda", m_lambda);
     m_nh.getParam("cameraType", camtyp);
     m_nh.getParam("cameraXml", camxml);
+	m_nh.getParam("camera2tool", cam2tool);
 	m_nh.getParam("lambda_g", m_lambda_g);
 	m_nh.getParam("sceneDepth", m_sceneDepth);
     m_nh.getParam("controlInBaseFrame", m_controlInBaseFrame);
+	m_nh.getParam("rosbagForEVS", m_rosbagForEVS);
+    m_nh.getParam("currentPoseTopicForEVS", m_currentPoseTopicForEVS);
 
 	for(int i = 0 ; i<6; i++)
 		m_dofs[i] = true;
-		
-	if(m_controlInBaseFrame)
+
+    stringstream str;
+    str<<m_logs_path<<"logfile.txt";
+    m_logfile.open(str.str().c_str());
+
+	if(cam2tool.compare("") != 0)
+	{
+		vpPoseVector r_ct;
+		if(!vpPoseVector::loadYAML(cam2tool, r_ct))
+			m_logfile << "no camera to tool transform loaded" << std::endl;
+
+		m_tMc.buildFrom(r_ct);
+		m_tVc.buildFrom(m_tMc);
+	}
+
+	if(m_controlInBaseFrame || m_rosbagForEVS)
 	{
 		m_nh.getParam("cameraPoseTopic", cameraPoseTopic);
 		
 		m_camPose_sub = m_nh.subscribe(cameraPoseTopic, 1, &pgmvsPGMVisualServoing::toolPoseCallback, this);
 	}
-
-    stringstream str;
-    str<<m_logs_path<<"logfile.txt";
-    m_logfile.open(str.str().c_str());
 
 	switch(camtyp)
 	{
@@ -143,11 +161,25 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     m_image_sub = m_it.subscribe(cameraTopic, 1, &pgmvsPGMVisualServoing::imageCallback, this);
 
 	m_velocity_pub = m_nh.advertise<geometry_msgs::Twist>(robotTopic, 1);
+
+	if(m_rosbagForEVS)
+	{
+		stringstream ss_bag, dst_bag;       
+        ss_bag<<m_logs_path<<"/desiredPose.bag";
+		dst_bag<<m_logs_path<<"/desiredAndCurrentPoses"<< ((unsigned)ros::Time::now().toSec()) <<".bag";
+		std::filesystem::copy(ss_bag.str().c_str(), dst_bag.str().c_str());
+		m_vsbag.open(dst_bag.str().c_str(),rosbag::bagmode::Append);
+	}
 }
 
 pgmvsPGMVisualServoing::~pgmvsPGMVisualServoing()
 {
   stopRobot();
+
+	if(m_rosbagForEVS)
+	{
+		m_vsbag.close();
+	}
 }
 
 void
@@ -264,7 +296,10 @@ pgmvsPGMVisualServoing::initVisualServoTask()
 void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &image)
 {
 	if(image->header.stamp <= t)
+	{
+		m_logfile << "late message " << image->header.stamp << " vs " << t << endl;
 		return;
+	}		
 
 	if(vsInitialized)
 	{
@@ -296,9 +331,43 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				}
 				else
 					m_v6[numDOF] = 0;
+/*
+			m_v6 = 0;
+			m_v6[3] = -0.05;
+*/
+			m_v6 = m_tVc * m_v6;
 
 			if(m_controlInBaseFrame)
-				m_v6 = m_bVc * m_v6;
+			{
+				mutex_bVt.lock();
+				m_v6 = m_bVt * m_v6;
+				mutex_bVt.unlock();
+			}
+
+			//if evs
+			//make a posetamped of m_bMt * m_tMc and publish
+			if(m_rosbagForEVS)
+			{
+				vpHomogeneousMatrix bMc;
+				mutex_bMt.lock();
+				bMc = m_bMt * m_tMc;
+				mutex_bMt.unlock();
+
+				geometry_msgs::PoseStamped currentRobotPoseStamped;
+				vpTranslationVector t = bMc.getTranslationVector();
+				vpQuaternionVector q = vpQuaternionVector(bMc.getRotationMatrix());
+
+				currentRobotPoseStamped.header.stamp = ros::Time::now();
+				currentRobotPoseStamped.pose.position.x = t[0];
+				currentRobotPoseStamped.pose.position.y = t[1];
+				currentRobotPoseStamped.pose.position.z = t[2];
+				currentRobotPoseStamped.pose.orientation.x = q.x();
+				currentRobotPoseStamped.pose.orientation.y = q.y();
+				currentRobotPoseStamped.pose.orientation.z = q.z();
+				currentRobotPoseStamped.pose.orientation.w = q.w();
+				
+				m_vsbag.write(m_currentPoseTopicForEVS, ros::Time::now(), currentRobotPoseStamped);
+			}
 
 			m_velocity.linear.x = m_v6[0];
 			m_velocity.linear.y = m_v6[1];
@@ -372,12 +441,20 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 
 void pgmvsPGMVisualServoing::toolPoseCallback(const tf2_msgs::TFMessage& tf)
 {
-	vpHomogeneousMatrix bMc = /*visp_bridge::*/toVispHomogeneousMatrix(tf);
-	bMc[0][3] = bMc[1][3] = bMc[2][3] = 0;
+	if(tf.transforms[0].child_frame_id.compare("tool0_controller") == 0)
+    {
+		mutex_bMt.lock();
+		m_bMt = /*visp_bridge::*/toVispHomogeneousMatrix(tf);
+		mutex_bMt.unlock();
+		
+		vpHomogeneousMatrix bMt = m_bMt;
+		bMt[0][3] = bMt[1][3] = bMt[2][3] = 0;
 
-	//m_logfile << bMc << std::endl;
-
-  m_bVc.buildFrom(bMc);
+		//m_logfile << bMc << std::endl;
+		mutex_bVt.lock();
+  		m_bVt.buildFrom(bMt);
+		mutex_bVt.unlock();
+	}
 }
 
 vpHomogeneousMatrix

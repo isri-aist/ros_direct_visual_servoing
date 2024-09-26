@@ -6,6 +6,8 @@
 
 #include "tf2_msgs/TFMessage.h"
 
+#include <rosbag/bag.h>
+
 #include "visp_bridge/image.h"
 
 //Camera types that can be considered
@@ -63,7 +65,16 @@ private:
 		ros::Publisher m_velocity_pub;
 
 		ros::Subscriber m_camPose_sub; 
-		vpVelocityTwistMatrix m_bVc;
+		vpVelocityTwistMatrix m_bVt;
+		std::mutex mutex_bVt;
+		vpHomogeneousMatrix m_tMc;
+		vpVelocityTwistMatrix m_tVc;
+		
+		vpHomogeneousMatrix m_bMc;
+		vpHomogeneousMatrix m_bMt;
+		std::mutex mutex_bMt;
+
+		rosbag::Bag m_vsbag;
 
 		geometry_msgs::Twist m_velocity;
 		sensor_msgs::Image m_diff;
@@ -141,6 +152,9 @@ private:
     vpDisplayX m_display_error;
     VisualServoTools m_visual_servo_tools;
 		*/
+
+    bool m_rosbagForEVS;
+    string m_currentPoseTopicForEVS;
 
 };
 
