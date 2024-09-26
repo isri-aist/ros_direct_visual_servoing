@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   image_transport
   visp_bridge
+  rosbag
 )
 
 ## System dependencies are found with CMake's conventions

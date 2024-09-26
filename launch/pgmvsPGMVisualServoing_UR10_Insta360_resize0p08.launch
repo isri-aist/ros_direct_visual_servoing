@@ -15,7 +15,7 @@
   <!-- Start the photometric visual servoing node for a specific camera-->  
   <node name="pgmvsPGMVisualServoing" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pgmvsVisualServoing"/>
   	<param name="cameraTopic" type="string" value="/image_resize/image"/> 
-  	<param name="robotTopic" type="string" value="/doosan/set_velocity"/> <!--/twist_controller/command"/> -->
+  	<param name="robotTopic" type="string" value="/twist_controller/command"/>
   	<param name="diffTopic" type="string" value="/pgmvs/diff_image"/>
     <param name="featuresDiffTopic" type="string" value="/pgmvs/diff_features"/>
     <param name="featuresImageTopic" type="string" value="/pgmvs/image_features"/>
@@ -31,7 +31,8 @@
     
     <param name="sceneDepth" type="double" value="1.0"/> 
 
-    <param name="controlInBaseFrame" type="bool" value="false"/>
+    <param name="camera2tool" type="string" value="$(find ros_dvs_bridge)/config/insta360toUR10flange.yml"/>
+    <param name="controlInBaseFrame" type="bool" value="true"/>
     <param name="cameraPoseTopic" type="string" value="/tf"/>
   <!-- </node> -->
 

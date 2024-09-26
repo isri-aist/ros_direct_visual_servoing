@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<root>
+  <!--M.I.S. Laboratory - Eynard Caron-->
+    <camera>
+      <!--Name of the camera-->
+      <name>Omni</name>
+      <!--Type of the camera-->
+      <type>0</type>
+      <!--Pixel ratio-->
+      <au>36.2253972</au>
+      <av>36.30754</av>
+      <!--Principal point-->
+      <u0>23.0863524</u0>
+      <v0>23.185494</v0>
+      <!--Xi-->
+      <xi>1.60230</xi>
+    </camera>
+</root>

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<root>
+  <!--PR team of the MIS lab - UPJV - France-->
+    <camera>
+      <!--Name of the camera-->
+      <name>Perspective</name>
+      <!--Type of the camera-->
+      <type>1</type>
+      <!--Pixel ratio-->
+      <au>377.358490566</au>
+      <av>377.358490566</av>
+      <!--Principal point-->
+      <u0>160.0000000000</u0>
+      <v0>128.0000000000</v0>
+    </camera>
+</root>
