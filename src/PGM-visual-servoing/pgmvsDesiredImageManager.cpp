@@ -1,10 +1,16 @@
 #include "pgmvsDesiredImageManager.h"
-
-#include <visp/vpIoTools.h>
+#include <visp/vpIoTools.h> 
 #include <visp/vpImageIo.h>
+
+//
+#include <opencv2/opencv.hpp>
+#include <opencv2/photo.hpp>
+//
 
 #include <rosbag/bag.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <filesystem>
+
 
 pgmvsDesiredImageManager::pgmvsDesiredImageManager()
     : m_it(m_nh), m_iter(-1), m_rosbagForEVS(true)
@@ -57,7 +63,7 @@ void pgmvsDesiredImageManager::imageCallback(const sensor_msgs::ImageConstPtr &i
     m_iter++;
 
     m_desired_image = visp_bridge::toVispImage(*image);
-    
+
     if (m_iter == 20)
     {
         std::string filename_write_image;
@@ -68,6 +74,21 @@ void pgmvsDesiredImageManager::imageCallback(const sensor_msgs::ImageConstPtr &i
 
         vpImageIo::write(this->m_desired_image, filename_write_image);
         m_logfile<<"desired_image written to"<<filename_write_image<<endl;
+
+        // Display the saved image & size 
+        cv::Mat image = cv::imread(filename_write_image, cv::IMREAD_COLOR); 
+        if (!image.empty()) {
+            int image_width = m_desired_image.getWidth();
+            int image_height = m_desired_image.getHeight();
+            std::cout << "Image size: " << image_width << " x " << image_height << std::endl;
+
+            cv::imshow("Saved Image", image); 
+            cv::waitKey(3000); // Wait for 3000 milliseconds
+            cv::destroyWindow("Saved Image"); 
+        }
+        else{
+            m_logfile << "Failed to open image " << filename_write_image << std::endl;
+        }
     
         //if evs
 		//make a posetamped of m_bVc and publish
@@ -75,12 +96,8 @@ void pgmvsDesiredImageManager::imageCallback(const sensor_msgs::ImageConstPtr &i
         {
             rosbag::Bag vsbag;
             geometry_msgs::PoseStamped desiredRobotPoseStamped;
-            vpHomogeneousMatrix bMc;
-		    mutex_bMt.lock();
-            bMc = m_bMt * m_tMc;
-		    mutex_bMt.unlock();
-            vpTranslationVector t = bMc.getTranslationVector();
-            vpQuaternionVector q = vpQuaternionVector(bMc.getRotationMatrix());
+            vpTranslationVector t = m_bMt.getTranslationVector();
+            vpQuaternionVector q = vpQuaternionVector(m_bMt.getRotationMatrix());
 
             desiredRobotPoseStamped.header.stamp = ros::Time::now();
             desiredRobotPoseStamped.pose.position.x = t[0];
@@ -92,7 +109,7 @@ void pgmvsDesiredImageManager::imageCallback(const sensor_msgs::ImageConstPtr &i
             desiredRobotPoseStamped.pose.orientation.w = q.w();
             
             stringstream ss_bag;       
-            ss_bag<<m_logs_path<<"/desiredPose.bag";
+            ss_bag<<m_logs_path<<"/desiredAndCurrentPoses.bag";
             vsbag.open(ss_bag.str().c_str(), rosbag::bagmode::Write);
             vsbag.write(m_desiredPoseTopicForEVS, ros::Time::now(), desiredRobotPoseStamped);
             vsbag.close();

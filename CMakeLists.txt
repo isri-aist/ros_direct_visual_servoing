@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(ros_dvs_bridge)
 
+set(CMAKE_CXX_STANDARD 17)
+
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -9,11 +11,15 @@ project(ros_dvs_bridge)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  rospy
   std_msgs
   sensor_msgs
   image_transport
   visp_bridge
   rosbag
+  cv_bridge
+  message_generation
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -29,31 +35,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## Declare ROS messages, services and actions ##
 ################################################
 
-## To declare and build messages, services or actions from within this
-## package, follow these steps:
-## * Let MSG_DEP_SET be the set of packages whose message types you use in
-##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
-## * In the file package.xml:
-##   * add a build_depend tag for "message_generation"
-##   * add a build_depend and a exec_depend tag for each package in MSG_DEP_SET
-##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in
-##     but can be declared for certainty nonetheless:
-##     * add a exec_depend tag for "message_runtime"
-## * In this file (CMakeLists.txt):
-##   * add "message_generation" and every package in MSG_DEP_SET to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * add "message_runtime" and every package in MSG_DEP_SET to
-##     catkin_package(CATKIN_DEPENDS ...)
-##   * uncomment the add_*_files sections below as needed
-##     and list every .msg/.srv/.action file to be processed
-##   * uncomment the generate_messages entry below
-##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
-
 ## Generate messages in the 'msg' folder
 # add_message_files(
 #   FILES
-#   Message1.msg
-#   Message2.msg
+#   VisualServoing.msg
 # )
 
 ## Generate services in the 'srv' folder
@@ -71,10 +56,21 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
+
+# Generate dynamic reconfigure parameters in the 'cfg' folder
+generate_dynamic_reconfigure_options(
+  cfg/lambda_g.cfg
+)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS dynamic_reconfigure
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -90,11 +86,7 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * uncomment the "generate_dynamic_reconfigure_options" section below
 ##     and list every .cfg file to be processed
 
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+
 
 ###################################
 ## catkin specific configuration ##
@@ -128,10 +120,10 @@ include_directories(
 #   src/${PROJECT_NAME}/ros_dvs_bridge.cpp
 # )
 
-## Add cmake target dependencies of the library
-## as an example, code may need to be generated before libraries
-## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# # Add cmake target dependencies of the library
+# # as an example, code may need to be generated before libraries
+# # either from message generation or dynamic reconfigure
+# add_dependencies(${PROJECT_NAME}_pgmvsVisualServoing ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
@@ -144,9 +136,9 @@ include_directories(
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
 # set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
 
-## Add cmake target dependencies of the executable
-## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# # Add cmake target dependencies of the executable
+# # same as for the library above
+# add_dependencies(${PROJECT_NAME}_pgmvsVisualServoing ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -155,22 +147,20 @@ include_directories(
 
 #creates the desired image saver for PVS
 add_executable(${PROJECT_NAME}_pvsCaptureAndSaveDesired src/photometric-visual-servoing/pvsCaptureAndSaveDesired.cpp src/photometric-visual-servoing/pvsDesiredImageManager.cpp)
-
 target_link_libraries(${PROJECT_NAME}_pvsCaptureAndSaveDesired ${catkin_LIBRARIES})
 
 #creates the visual servoer for PVS
 add_executable(${PROJECT_NAME}_pvsVisualServoing src/photometric-visual-servoing/pvsVisualServoing.cpp src/photometric-visual-servoing/pvsPhotometricVisualServoing.cpp)
-
 target_link_libraries(${PROJECT_NAME}_pvsVisualServoing ${catkin_LIBRARIES})
 
 
 #creates the desired image saver for PGMVS
 add_executable(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired src/PGM-visual-servoing/pgmvsCaptureAndSaveDesired.cpp src/PGM-visual-servoing/pgmvsDesiredImageManager.cpp)
-
 target_link_libraries(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired ${catkin_LIBRARIES})
 
+
 #creates the visual servoer for PGMVS
-if(${USE_PER})
+# if(${USE_PER})
   find_package(PER REQUIRED per_core per_io per_features per_sensor_pose_estimation per_estimation)
   if(PER_FOUND)
 	  include(${PER_USE_FILE})
@@ -181,7 +171,20 @@ if(${USE_PER})
   add_executable(${PROJECT_NAME}_pgmvsVisualServoing src/PGM-visual-servoing/pgmvsVisualServoing.cpp src/PGM-visual-servoing/pgmvsPGMVisualServoing.cpp)
 
   target_link_libraries(${PROJECT_NAME}_pgmvsVisualServoing ${catkin_LIBRARIES})
-endif()
+# endif()
+
+#make sure configure headers are built before any node using them
+add_dependencies(${PROJECT_NAME}_pgmvsVisualServoing ${PROJECT_NAME}_gencfg)
+
+# Add cmake target dependencies of the library
+# as an example, code may need to be generated before libraries
+# either from message generation or dynamic reconfigure
+add_dependencies(${PROJECT_NAME}_pgmvsVisualServoing ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+# Add cmake target dependencies of the executable
+# same as for the library above
+add_dependencies(${PROJECT_NAME}_pgmvsVisualServoing ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 
 SET(USE_PER FALSE CACHE BOOL "Sets the use of libPeR" FORCE)
 

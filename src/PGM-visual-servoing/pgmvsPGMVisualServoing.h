@@ -1,8 +1,13 @@
 #ifndef __pgmvsPGMVisualServoing_H__
 #define __pgmvsPGMVisualServoing_H__
 
+#include <mutex>
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/Float32MultiArray.h>
+#include "ros_dvs_bridge/VisualServoing.h"
+
 
 #include "tf2_msgs/TFMessage.h"
 
@@ -30,7 +35,7 @@
 #include <per/prCameraPoseEstim.h>
 
 #define INTERPTYPE prInterpType::IMAGEPLANE_BILINEAR
-
+#define MAX_STAGNATION_ITER 10 
 #define INDICATORS
 
 using namespace std;
@@ -53,6 +58,11 @@ public:
 
 		void stopRobot();
 
+		void updateParameters(double new_lambda_g, double new_lambda, double new_sceneDepth);
+		void saveExperimentData();
+		
+		rosbag::Bag m_vsbag;
+
 private:
 
     ros::NodeHandle m_nh;
@@ -74,7 +84,13 @@ private:
 		vpHomogeneousMatrix m_bMt;
 		std::mutex mutex_bMt;
 
-		rosbag::Bag m_vsbag;
+		bool m_pub_cost;
+		ros::Publisher m_cost_pub;
+		std_msgs::Float32 m_cost; 
+
+		bool m_pub_velocity;
+		ros::Publisher m_velo_pub; 
+		std_msgs::Float32 m_velo;
 
 		geometry_msgs::Twist m_velocity;
 		sensor_msgs::Image m_diff;
@@ -93,6 +109,12 @@ private:
 
 		vpImage<unsigned char> m_difference_image;
 		vpImage<unsigned char> m_difference_pgm;
+
+		double DIFF_VELO;
+		double RESIDUAL_THRESHOLD;  
+		double lastVelocities[MAX_STAGNATION_ITER];
+		int stagnationCount;              
+		int iterCount;
 
 
 		ros::Time t;
@@ -119,6 +141,8 @@ private:
 
     	prCameraPoseEstim<prFeaturesSet<prCartesian2DPointVec, prPhotometricnnGMS<prCartesian2DPointVec>, prRegularlySampledCPImage >, 
                       prSSDCmp<prCartesian2DPointVec, prPhotometricnnGMS<prCartesian2DPointVec> > > servo; // visual servoing task
+		
+		std::mutex lambda_mutex;
 		double m_lambda_g;
 		bool updateSampler;
     	bool poseJacobianCompute;
@@ -138,10 +162,18 @@ private:
 		bool m_pub_featuresImage;
 		bool m_pub_desiredFeaturesImage;
 
+		bool m_saveExperimentData; //saves residuals, velocities, evs ros bag, logfile, times
+		std::string bagFilePath;  
+		std::string camera_type; 
+
+		bool m_twoStepVS; 
+		bool m_flagSecondStepVS; //flag for reducing lambda_g only once
+		
     std::ofstream m_logfile;
 #ifdef INDICATORS
 		std::ofstream m_residuals;
 		std::ofstream m_times;
+		std::ofstream m_velocities;
 #endif
     string m_logs_path;
     string m_data_path;

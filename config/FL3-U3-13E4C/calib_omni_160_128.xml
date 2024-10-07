@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <root>
-  <!--M.I.S. Laboratory - Eynard Caron-->
+  <!--PR team of the MIS lab - UPJV - France-->
     <camera>
       <!--Name of the camera-->
       <name>Omni</name>
       <!--Type of the camera-->
       <type>0</type>
       <!--Pixel ratio-->
-      <au>36.2253972</au>
-      <av>36.30754</av>
+      <au>176.69625</au>
+      <av>176.69625</av>
       <!--Principal point-->
-      <u0>23.0863524</u0>
-      <v0>23.185494</v0>
+      <u0>80.0000000000</u0>
+      <v0>64.0000000000</v0>
       <!--Xi-->
-      <xi>1.60230</xi>
+      <xi>1.78412</xi>
     </camera>
 </root>

@@ -3,8 +3,12 @@
 
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
+#include <std_msgs/Float32.h>
+
 
 #include "tf2_msgs/TFMessage.h"
+
+#include <rosbag/bag.h>
 
 #include "visp_bridge/image.h"
 
@@ -28,7 +32,7 @@ public:
 
 		void imageCallback(const sensor_msgs::ImageConstPtr& image); 
 
-    void toolPoseCallback(const tf2_msgs::TFMessage& tf); 
+    	void toolPoseCallback(const tf2_msgs::TFMessage& tf); 
 		vpHomogeneousMatrix toVispHomogeneousMatrix(const tf2_msgs::TFMessage& trans);   
 		int errorToImage(vpColVector &e, vpImage<unsigned char> &m_diff_image);
 
@@ -40,10 +44,15 @@ private:
     image_transport::ImageTransport m_it;
     image_transport::Subscriber m_image_sub;
     image_transport::Publisher m_diff_pub;
-		ros::Publisher m_velocity_pub;
+	ros::Publisher m_velocity_pub;
 
-		ros::Subscriber m_camPose_sub; 
-		vpVelocityTwistMatrix m_bVc;
+	ros::Subscriber m_camPose_sub; 
+	vpVelocityTwistMatrix m_bVc;
+	std::mutex mutex_bVc;
+	vpHomogeneousMatrix m_bMc;
+	std::mutex mutex_bMc;
+
+	rosbag::Bag m_vsbag;
 
 		geometry_msgs::Twist m_velocity;
 		sensor_msgs::Image m_diff;
@@ -86,6 +95,9 @@ private:
     vpDisplayX m_display_error;
     VisualServoTools m_visual_servo_tools;
 		*/
+
+    bool m_rosbagForEVS;
+    string m_currentPoseTopicForEVS;
 
 };
 

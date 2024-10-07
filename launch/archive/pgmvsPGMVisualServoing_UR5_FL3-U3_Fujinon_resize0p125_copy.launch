@@ -94,8 +94,10 @@
   <!-- Resize the captured images to reduce the processing time -->
   <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize" output="screen">
   	<remap from="image" to="/camera/image_mono" />
-  	<param name="scale_width" value="0.125" />
-  	<param name="scale_height" value="0.125" />
+    <param name="scale_width" value="0.25" />
+    <param name="scale_height" value="0.25" />
+  	<!-- <param name="scale_width" value="0.0625" />
+  	<param name="scale_height" value="0.0625" /> -->
   </node>
 
   <!-- Start the photometric visual servoing node for a specific camera-->  
@@ -107,19 +109,20 @@
     <param name="featuresImageTopic" type="string" value="/pgmvs/image_features"/>
     <param name="desiredFeaturesImageTopic" type="string" value="/pgmvs/desired_image_features"/>
 
-    <param name="cameraType" type="int" value="1"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
-    <!-- <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/calib_equi_184_92.xml"/>
-    <param name="lambda_g" type="double" value="1.91"/> -->
-    <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/calib_persp_80_64.xml"/>
-    <param name="lambda_g" type="double" value="0.805"/>
+    <param name="cameraType" type="int" value="0"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
+    <!-- <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/insta360_one_x2/calib_equi_184_92.xml"/>
+    <param name="lambda_g" type="double" value="1.91" and "0.805"/> -->
+    <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3-13E4C/calib_omni_160_128.xml"/>
+    <!-- <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3-13E4C/calib_omni_40_32.xml"/> -->
+    <param name="lambda_g" type="double" value="1.805"/> 
 
   	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
 
-    <param name="lambda" type="double" value="1.0"/> 
+    <param name="lambda" type="double" value="0.50"/> 
 
-    <param name="sceneDepth" type="double" value="0.5"/> 
+    <param name="sceneDepth" type="double" value="1"/> 
 
-    <param name="camera2tool" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3toUR10flange.yml"/>
+    <param name="camera2tool" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3toTool.yml"/>
     <param name="controlInBaseFrame" type="bool" value="true"/>
     <param name="cameraPoseTopic" type="string" value="/tf"/>
 

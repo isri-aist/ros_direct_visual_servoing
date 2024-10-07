@@ -4,8 +4,13 @@
 #include <visp/vpImageIo.h>
 #include <visp/vpImageTools.h>
 
-#include <geometry_msgs/PoseStamped.h>
+//
+#include <opencv2/opencv.hpp>
+#include <opencv2/photo.hpp>
+//
+#include <iostream>
 
+#include <geometry_msgs/PoseStamped.h>
 #include <filesystem>
 
 pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
@@ -13,12 +18,12 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 	  m_v(6), m_v6(6), m_normError(1e12), m_pub_diffImage(false),  m_pub_diffFeaturesImage(false),
 	  m_pub_featuresImage(false), m_pub_desiredFeaturesImage(false), _camera(nullptr),
 	  updateSampler(true), poseJacobianCompute(true), robust(false),
-	  nbDOF(6)
+	  nbDOF(6), m_flagSecondStepVS(false), DIFF_VELO(1e-3), RESIDUAL_THRESHOLD(1e-4)
 {
-    string cameraTopic, robotTopic, cameraPoseTopic, diffTopic, featuresDiffTopic, camxml, cam2tool;
+    string cameraTopic, robotTopic, cameraPoseTopic, diffTopic, featuresDiffTopic, camxml, cam2tool, costTopic, velocityTopic;
 	string desiredFeaturesImageTopic, featuresImageTopic;
 	double f, ku;
-	int camtyp;	
+	int camtyp;	 
 
     m_nh.param("cameraTopic", cameraTopic, string(""));
 	m_nh.param("robotTopic", robotTopic, string(""));
@@ -37,6 +42,10 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     m_nh.param("cameraPoseTopic", cameraPoseTopic, string(""));
 	m_nh.param("rosbagForEVS", m_rosbagForEVS, false);
     m_nh.param("currentPoseTopicForEVS", m_currentPoseTopicForEVS, string(""));
+	m_nh.param("costTopic", costTopic, string(""));
+	m_nh.param("velocityTopic", velocityTopic, string(""));
+	m_nh.param("saveExprimentData", m_saveExperimentData, false);
+	m_nh.param("twoStepVS", m_twoStepVS, bool(false));
 
     m_nh.getParam("cameraTopic", cameraTopic);
     m_nh.getParam("robotTopic", robotTopic);
@@ -54,6 +63,10 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     m_nh.getParam("controlInBaseFrame", m_controlInBaseFrame);
 	m_nh.getParam("rosbagForEVS", m_rosbagForEVS);
     m_nh.getParam("currentPoseTopicForEVS", m_currentPoseTopicForEVS);
+	m_nh.getParam("costTopic", costTopic);
+	m_nh.getParam("velocityTopic", velocityTopic);
+	m_nh.getParam("saveExprimentData", m_saveExperimentData);
+	m_nh.getParam("twoStepVS", m_twoStepVS);
 
 	for(int i = 0 ; i<6; i++)
 		m_dofs[i] = true;
@@ -79,10 +92,22 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 		m_camPose_sub = m_nh.subscribe(cameraPoseTopic, 1, &pgmvsPGMVisualServoing::toolPoseCallback, this);
 	}
 
+	if(costTopic.compare("")!=0){
+		m_cost_pub = m_nh.advertise<std_msgs::Float32>(costTopic, 1);
+		m_pub_cost = true;
+	}
+
+	if (velocityTopic.compare("") != 0) {
+    	m_velo_pub = m_nh.advertise<std_msgs::Float32>(velocityTopic, 1);
+    	m_pub_velocity = true;
+	}
+
+
 	switch(camtyp)
 	{
 		case Omni:
 		{
+			camera_type = "fisheye";
 	    	_camera = new prOmni();
 
     		// Load the camera parameters from the XML file
@@ -95,6 +120,7 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 		}
 		case Equirectangular:
 		{
+			camera_type = "equirect";
 			_camera = new prEquirectangular();
 
 			// Load the camera parameters from the XML file
@@ -108,6 +134,7 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 		}
 		case Persp:
 		{
+			camera_type = "perspective";
 			//including P for perspective camera, which is the default
 			_camera = new prPerspective();
 
@@ -130,6 +157,10 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 	str.str("");
 	str<<m_logs_path<<"times.txt";
     m_times.open(str.str().c_str());
+
+	str.str("");
+	str<<m_logs_path<<"velocities.txt";
+    m_velocities.open(str.str().c_str());
 #endif
 
 	if(diffTopic.compare("") != 0)
@@ -161,25 +192,28 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     m_image_sub = m_it.subscribe(cameraTopic, 1, &pgmvsPGMVisualServoing::imageCallback, this);
 
 	m_velocity_pub = m_nh.advertise<geometry_msgs::Twist>(robotTopic, 1);
+	//m_velocity_pub = m_nh.advertise<ros_dvs_bridge::VisualServoing>(robotTopic, 1);
 
 	if(m_rosbagForEVS)
 	{
 		stringstream ss_bag, dst_bag;       
-        ss_bag<<m_logs_path<<"/desiredPose.bag";
-		dst_bag<<m_logs_path<<"/desiredAndCurrentPoses"<< ((unsigned)ros::Time::now().toSec()) <<".bag";
+        ss_bag<<m_logs_path<<"/desiredAndCurrentPoses.bag";
+		dst_bag<<m_logs_path<<"/desiredAndCurrentPoses" <<((unsigned)ros::Time::now().toSec()) <<camera_type <<".bag";
 		std::filesystem::copy(ss_bag.str().c_str(), dst_bag.str().c_str());
+		bagFilePath = dst_bag.str().c_str();
 		m_vsbag.open(dst_bag.str().c_str(),rosbag::bagmode::Append);
 	}
 }
 
 pgmvsPGMVisualServoing::~pgmvsPGMVisualServoing()
 {
-  stopRobot();
-
 	if(m_rosbagForEVS)
 	{
 		m_vsbag.close();
 	}
+	m_logfile.close();
+  	stopRobot();
+
 }
 
 void
@@ -192,11 +226,14 @@ pgmvsPGMVisualServoing::stopRobot()
 	m_velocity.angular.y = 0;
   	m_velocity.angular.z = 0;
 	m_velocity_pub.publish(m_velocity);
+
+	if (m_saveExperimentData) {
+        saveExperimentData();
+    }
 }
 
-void
-pgmvsPGMVisualServoing::initVisualServoTask()
-{
+void pgmvsPGMVisualServoing::initVisualServoTask()
+{ 
 	//load desired image
 	std::string filename_read_image;
   stringstream ss_desired_image;
@@ -211,6 +248,8 @@ pgmvsPGMVisualServoing::initVisualServoTask()
 
 		m_height = m_desired_image.getHeight();
 		m_width = m_desired_image.getWidth();
+
+		m_logfile<< m_height << " x " << m_width <<endl;
 
 		// 2. VS objects initialization, considering the pose control of a perspective camera from the feature set of photometric non-normalized Gaussian mixture 2D samples compared thanks to the SSD
 		servo.setdof(m_dofs[0], m_dofs[1], m_dofs[2], m_dofs[3], m_dofs[4], m_dofs[5]);
@@ -259,7 +298,7 @@ pgmvsPGMVisualServoing::initVisualServoTask()
     	IP_cur = new prRegularlySampledCPImage<unsigned char>(m_height, m_width);
     	IP_cur->setInterpType(INTERPTYPE);
     	IP_cur->buildFrom(m_current_image, _camera); 
-        
+
     	fSet_cur.buildFrom(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler); // Goulot !
 
 		m_logfile << "cur built " << m_height << " " << m_width << endl;
@@ -293,8 +332,11 @@ pgmvsPGMVisualServoing::initVisualServoTask()
 
 }
 
-void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &image)
-{
+void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &image) {
+	lastVelocities[MAX_STAGNATION_ITER] = {0};  
+	stagnationCount = 0;                 
+	iterCount = 0; 
+
 	if(image->header.stamp <= t)
 	{
 		m_logfile << "late message " << image->header.stamp << " vs " << t << endl;
@@ -313,8 +355,8 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 
 		if((m_current_image.getHeight() == m_height) && (m_current_image.getWidth() == m_width))
 		{
-			// Compute current visual feature
 			IP_cur->buildFrom(m_current_image, _camera); 
+
 			fSet_cur.updateMeasurement(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler);  
 			m_logfile << "cur updated" << endl;
 
@@ -331,10 +373,12 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				}
 				else
 					m_v6[numDOF] = 0;
-/*
-			m_v6 = 0;
-			m_v6[3] = -0.05;
-*/
+
+			//---------------test extrinsic camera_calib here-------------------
+			// m_v6 = 0; 
+			// m_v6[4] = 0.05; //sending slow velocity commands (0 for transl. x in camera frame)
+			//------------------------------------------------------------------
+
 			m_v6 = m_tVc * m_v6;
 
 			if(m_controlInBaseFrame)
@@ -344,18 +388,38 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				mutex_bVt.unlock();
 			}
 
-			//if evs
-			//make a posetamped of m_bMt * m_tMc and publish
-			if(m_rosbagForEVS)
-			{
-				vpHomogeneousMatrix bMc;
-				mutex_bMt.lock();
-				bMc = m_bMt * m_tMc;
-				mutex_bMt.unlock();
+			if(m_twoStepVS){
+				lastVelocities[iterCount % MAX_STAGNATION_ITER] = sqrt(m_v6.sumSquare()); 
+				iterCount++;
 
+				bool stagnant = true; 
+				for(int i = 1; i < MAX_STAGNATION_ITER; ++i) {
+					if(fabs(lastVelocities[i] - lastVelocities[i-1]) > DIFF_VELO ) {
+						stagnant = false;
+						break;
+					}
+				}
+
+
+				if (stagnant && sqrt(m_v6.sumSquare()) < RESIDUAL_THRESHOLD && !m_flagSecondStepVS) {
+					m_logfile << "Residuals stabilized, starting second step of vs task" << std::endl;
+					std::cout << "--------------------Initializing second step of vs--------------------" << std::endl; 
+					// stopRobot();  
+					double new_lambda_g = 0.5; //updating parameters for 2. step
+					double new_lambda = 1;
+					updateParameters(new_lambda_g, new_lambda, m_sceneDepth);
+					m_flagSecondStepVS = true; //set flag true 
+					return;
+				}
+			}
+
+
+
+			if(m_rosbagForEVS) 
+			{
 				geometry_msgs::PoseStamped currentRobotPoseStamped;
-				vpTranslationVector t = bMc.getTranslationVector();
-				vpQuaternionVector q = vpQuaternionVector(bMc.getRotationMatrix());
+				vpTranslationVector t = m_bMt.getTranslationVector();
+				vpQuaternionVector q = vpQuaternionVector(m_bMt.getRotationMatrix());
 
 				currentRobotPoseStamped.header.stamp = ros::Time::now();
 				currentRobotPoseStamped.pose.position.x = t[0];
@@ -368,7 +432,7 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				
 				m_vsbag.write(m_currentPoseTopicForEVS, ros::Time::now(), currentRobotPoseStamped);
 			}
-
+		
 			m_velocity.linear.x = m_v6[0];
 			m_velocity.linear.y = m_v6[1];
 			m_velocity.linear.z = m_v6[2];
@@ -413,14 +477,29 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				m_featuresDiff_pub.publish(m_featuresDiff);
 			}
 			
+			if(m_pub_cost){
+				m_cost.data = m_normError;
+				m_cost_pub.publish(m_cost);
+			}
+
+			if(m_pub_velocity){
+				m_velo.data = sqrt(m_v6.sumSquare());
+				m_velo_pub.publish(m_velo);
+			}
+
 #ifdef INDICATORS
 			m_times << vpTime::measureTimeMs() - duration << " ms" << std::endl;
 
 			m_residuals << m_normError << std::endl; // |e|
+
+			m_velocities << m_v6.t() << std::endl; 
 #endif 
 			m_logfile << " |e| = " << m_normError << std::endl;
 			m_logfile << " |v| = " << sqrt(m_v6.sumSquare()) << std::endl;
 			m_logfile << " v = " << m_v6.t() << std::endl;
+			// ROS_INFO("Speedb updated"); 
+			//std::cout << " v = " << m_v6.t() << std::endl;
+			std::cout << " |v| = " << sqrt(m_v6.sumSquare()) << std::endl;
    		 }
 		else
 		{
@@ -454,8 +533,50 @@ void pgmvsPGMVisualServoing::toolPoseCallback(const tf2_msgs::TFMessage& tf)
 		mutex_bVt.lock();
   		m_bVt.buildFrom(bMt);
 		mutex_bVt.unlock();
+
 	}
 }
+
+void pgmvsPGMVisualServoing::updateParameters(double new_lambda_g, double new_lambda, double new_sceneDepth) {
+
+    if (new_lambda_g != m_lambda_g) {
+		const std::lock_guard<std::mutex> lock(lambda_mutex);
+        std::cout << "Updating lambda_g from " << m_lambda_g << " to " << new_lambda_g << std::endl;
+        m_lambda_g = new_lambda_g;
+        vsInitialized = false;
+        initVisualServoTask();
+    }
+
+    if (new_lambda != m_lambda) {
+        std::cout << "Updating lambda from " << m_lambda << " to " << new_lambda << std::endl;
+        m_lambda = new_lambda;
+        servo.initControl(m_lambda, m_sceneDepth); 
+    }
+
+    if (new_sceneDepth != m_sceneDepth) {
+        std::cout << "Updating sceneDepth from " << m_sceneDepth << " to " << new_sceneDepth << std::endl;
+        m_sceneDepth = new_sceneDepth;
+        servo.initControl(m_lambda, m_sceneDepth); 
+    }
+}
+
+void 
+pgmvsPGMVisualServoing::saveExperimentData(){
+	std::string exp;
+	std::stringstream exp_path;
+    exp_path << m_logs_path << "/exp" <<((unsigned)ros::Time::now().toSec()) << camera_type;
+	std::filesystem::create_directories(exp_path.str());
+
+	std::filesystem::copy(m_logs_path + "/velocities.txt", exp_path.str() + "/velocities.txt");
+	std::filesystem::copy(m_logs_path + "/residuals.txt", exp_path.str() + "/residuals.txt");
+	std::filesystem::copy(m_logs_path + "/logfile.txt", exp_path.str() + "/logfile.txt");
+	std::filesystem::copy(m_logs_path + "/times.txt", exp_path.str() + "/times.txt");
+
+	std::filesystem::copy(bagFilePath, exp_path.str());
+
+    std::cout << "Experiment Data saved" << std::endl;
+}
+
 
 vpHomogeneousMatrix
 pgmvsPGMVisualServoing::toVispHomogeneousMatrix(const tf2_msgs::TFMessage& trans)

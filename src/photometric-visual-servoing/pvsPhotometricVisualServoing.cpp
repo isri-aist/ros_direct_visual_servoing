@@ -3,6 +3,8 @@
 #include <visp/vpIoTools.h>
 #include <visp/vpImageIo.h>
 
+#include <geometry_msgs/PoseStamped.h>
+
 pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
     : m_it(m_nh), m_iter(-1), vsInitialized(false), m_height(0), m_width(0), m_sceneDepth(1.0), m_v(6), m_normError(1e12), m_pub_diffImage(false)
 {
@@ -10,8 +12,8 @@ pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
 		double f, ku;
 
     m_nh.param("cameraTopic", cameraTopic, string(""));
-		m_nh.param("robotTopic", robotTopic, string(""));
-		m_nh.param("diffTopic", diffTopic, string(""));
+	m_nh.param("robotTopic", robotTopic, string(""));
+	m_nh.param("diffTopic", diffTopic, string(""));
     m_nh.param("logs", m_logs_path, string(""));
     m_nh.param("lambda", m_lambda, double(1.0));
     m_nh.param("focal", f, double(1.0));
@@ -21,6 +23,8 @@ pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
     m_nh.param("sceneDepth", m_sceneDepth, double(1.0));
     m_nh.param("controlInBaseFrame", m_controlInBaseFrame, false);
     m_nh.param("cameraPoseTopic", cameraPoseTopic, string(""));
+	m_nh.param("rosbagForEVS", m_rosbagForEVS, false);
+    m_nh.param("currentPoseTopicForEVS", m_currentPoseTopicForEVS, string(""));
 
     m_nh.getParam("cameraTopic", cameraTopic);
     m_nh.getParam("robotTopic", robotTopic);
@@ -30,9 +34,12 @@ pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
     m_nh.getParam("pixelSize", ku);
     m_nh.getParam("u0", m_u0);
     m_nh.getParam("v0", m_v0);
-		m_nh.getParam("sceneDepth", m_sceneDepth);
+	m_nh.getParam("sceneDepth", m_sceneDepth);
     m_nh.getParam("controlInBaseFrame", m_controlInBaseFrame);
-		if(m_controlInBaseFrame)
+	m_nh.getParam("rosbagForEVS", m_rosbagForEVS);
+    m_nh.getParam("currentPoseTopicForEVS", m_currentPoseTopicForEVS);
+
+		if(m_controlInBaseFrame || m_rosbagForEVS)
 		{
     	m_nh.getParam("cameraPoseTopic", cameraPoseTopic);
 			
@@ -71,11 +78,24 @@ pvsPhotometricVisualServoing::pvsPhotometricVisualServoing()
 			m_diff_pub = m_it.advertise(diffTopic, 1);
 			m_pub_diffImage = true;
 		}
+
+	if(m_rosbagForEVS)
+	{
+		stringstream ss_bag;       
+        ss_bag<<m_logs_path<<"/desiredAndCurrentPoses.bag";
+		m_vsbag.open(ss_bag.str().c_str(),rosbag::bagmode::Append);
+	}
+	
 }
 
 pvsPhotometricVisualServoing::~pvsPhotometricVisualServoing()
 {
-  stopRobot();
+	stopRobot();
+
+	if(m_rosbagForEVS)
+	{
+		m_vsbag.close();
+	}
 }
 
 void
@@ -152,16 +172,53 @@ void pvsPhotometricVisualServoing::imageCallback(const sensor_msgs::ImageConstPt
 #endif
 
     m_current_image = visp_bridge::toVispImage(*image);
+	
 
 		if((m_current_image.getHeight() == m_height) && (m_current_image.getWidth() == m_width))
 		{
+			/* Invert the current image
+            for (int i = 0; i < m_current_image.getHeight(); ++i)
+            {
+                for (int j = 0; j < m_current_image.getWidth(); ++j)
+                {
+                    m_current_image[i][j] = 255 - m_current_image[i][j]; // Invert pixel value
+                }
+            }*/
+			
 			// Compute current visual feature
       sI.buildFrom(m_current_image);
 
       m_v = servo.computeControlLaw(); // camera velocity send to the robot
 
 			if(m_controlInBaseFrame)
+			{
+				mutex_bVc.lock();
 				m_v = m_bVc * m_v;
+				mutex_bVc.unlock();
+			}
+
+			//if evs
+			//make a posetamped of m_bMMc and publish
+			if(m_rosbagForEVS)
+			{
+				geometry_msgs::PoseStamped currentRobotPoseStamped;
+				mutex_bMc.lock();
+				vpTranslationVector t = m_bMc.getTranslationVector();
+				vpQuaternionVector q = vpQuaternionVector(m_bMc.getRotationMatrix());
+				mutex_bMc.unlock();
+
+				currentRobotPoseStamped.header.stamp = ros::Time::now();
+				currentRobotPoseStamped.pose.position.x = t[0];
+				currentRobotPoseStamped.pose.position.y = t[1];
+				currentRobotPoseStamped.pose.position.z = t[2];
+				currentRobotPoseStamped.pose.orientation.x = q.x();
+				currentRobotPoseStamped.pose.orientation.y = q.y();
+				currentRobotPoseStamped.pose.orientation.z = q.z();
+				currentRobotPoseStamped.pose.orientation.w = q.w();
+				
+				m_vsbag.write(m_currentPoseTopicForEVS, ros::Time::now(), currentRobotPoseStamped);
+			}
+			
 
 			m_velocity.linear.x = m_v[0];
 			m_velocity.linear.y = m_v[1];
@@ -211,12 +268,20 @@ void pvsPhotometricVisualServoing::imageCallback(const sensor_msgs::ImageConstPt
 
 void pvsPhotometricVisualServoing::toolPoseCallback(const tf2_msgs::TFMessage& tf)
 {
-	vpHomogeneousMatrix bMc = /*visp_bridge::*/toVispHomogeneousMatrix(tf);
-	bMc[0][3] = bMc[1][3] = bMc[2][3] = 0;
+	if(tf.transforms[0].child_frame_id.compare("tool0_controller") == 0)
+    {
+		mutex_bMc.lock();
+		m_bMc = /*visp_bridge::*/toVispHomogeneousMatrix(tf);
+		vpHomogeneousMatrix bMc = m_bMc;
+		mutex_bMc.unlock();
 
-	//m_logfile << bMc << std::endl;
+		bMc[0][3] = bMc[1][3] = bMc[2][3] = 0;
 
-  m_bVc.buildFrom(bMc);
+		//m_logfile << bMc << std::endl;
+		mutex_bVc.lock();
+		m_bVc.buildFrom(bMc);
+		mutex_bVc.unlock();
+	}
 }
 
 vpHomogeneousMatrix

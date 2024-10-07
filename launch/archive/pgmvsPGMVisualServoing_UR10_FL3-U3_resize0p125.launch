@@ -14,7 +14,7 @@
       camera itself. Use the parameter 'control_frame_rate' to enable manual frame 
       rate control, and 'frame_rate' to set the frame rate value. -->
   <arg name="control_frame_rate"        default="True" />
-  <arg name="frame_rate"                default="60" />
+  <arg name="frame_rate"                default="10" />
 
   <!-- Disabling ISP will dramatically increase frame-rate. However, it can only be 
       disabled when using Bayer encoding (e.g. BayerRG8)-->
@@ -38,13 +38,6 @@
         - BayerGB16        - BayerGB12Packed
         - BayerBG16        - BayerBG12Packed
   -->
-
-  <arg name="exposure_auto"             default="Off" /> <!-- Off, Once, or Continuous -->
-  <arg name="auto_gain"             default="Off" /> <!-- Off, Once, or Continuous -->
-  <arg name="exposure_time"             default="16000" /> <!-- micro seconds -->
-  <arg name="gain"             default="0" /> <!--  -->
-  <arg name="black_level"             default="0" /> <!--  -->
-  <arg name="black_level_auto"             default="Off" /> <!--  -->
 
   <group ns="$(arg camera_name)">
     <!-- Nodelet manager -->
@@ -87,13 +80,6 @@
       <param name="image_format_roi_height" value="720" />
       -->
 
-      <param name="exposure_auto"       value="$(arg exposure_auto)" />
-      <param name="auto_gain"       value="$(arg auto_gain)" />
-      <param name="exposure_time"       value="$(arg exposure_time)" />
-      <param name="gain"       value="$(arg gain)" />
-      <param name="black_level"       value="$(arg black_level)" />
-      <param name="black_level_auto"       value="$(arg black_level_auto)" />
-
       <!-- Use the camera_calibration package to create this file -->
       <param name="camera_info_url" if="$(arg calibrated)"
              value="file://$(env HOME)/.ros/camera_info/$(arg camera_serial).yaml" />
@@ -104,23 +90,43 @@
           args="load image_proc/debayer camera_nodelet_manager">
     </node>
   </group>
-
+  
   <!-- Resize the captured images to reduce the processing time -->
-  <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize">
-    <remap from="image" to="/camera/image_mono" />
-    <param name="scale_width" value="0.125" />
-    <param name="scale_height" value="0.125" />
+  <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize" output="screen">
+  	<remap from="image" to="/camera/image_mono" />
+  	<param name="scale_width" value="0.125" />
+  	<param name="scale_height" value="0.125" />
   </node>
 
-  <!-- Start the desired image saving node for photometric visual servoing -->  
-  <node name="pgmvsCaptureAndSaveDesired" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pgmvsCaptureAndSaveDesired"/> <!-- launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "> -->
-    <param name="cameraTopic" type="string" value="/image_resize/image"/>
-    <param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
- 
-    <param name="rosbagForEVS" type="bool" value="true"/>
-    <param name="camera2tool" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3toUR10flange.yml"/>
+  <!-- Start the photometric visual servoing node for a specific camera-->  
+  <node name="pgmvsPGMVisualServoing" pkg="ros_dvs_bridge" type="ros_dvs_bridge_pgmvsVisualServoing"/>
+  	<param name="cameraTopic" type="string" value="/image_resize/image"/> 
+  	<param name="robotTopic" type="string" value="/twist_controller/command"/> 
+  	<param name="diffTopic" type="string" value="/pgmvs/diff_image"/>
+    <param name="featuresDiffTopic" type="string" value="/pgmvs/diff_features"/>
+    <param name="featuresImageTopic" type="string" value="/pgmvs/image_features"/>
+    <param name="desiredFeaturesImageTopic" type="string" value="/pgmvs/desired_image_features"/>
+
+    <param name="cameraType" type="int" value="1"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
+    <!-- <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/insta360_one_x2/calib_equi_184_92.xml"/>
+    <param name="lambda_g" type="double" value="1.91"/> -->
+    <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3-13E4C/calib_persp_80_64.xml"/>
+    <param name="lambda_g" type="double" value="01.0"/>
+
+  	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
+
+    <param name="lambda" type="double" value="0.50"/> 
+
+    <param name="sceneDepth" type="double" value="0.5"/> 
+
+    <param name="camera2tool" type="string" value="$(find ros_dvs_bridge)/config/FL3-U3toWrist.yml"/>
+    <param name="controlInBaseFrame" type="bool" value="true"/>
     <param name="cameraPoseTopic" type="string" value="/tf"/>
-    <param name="desiredPoseTopicForEVS" type="string" value="/vs/camera/desired_pose"/>
+
+    <param name="rosbagForEVS" type="bool" value="true"/>
+    <param name="currentPoseTopicForEVS" type="string" value="/vs/camera/current_pose"/>
+    
+  <!-- </node> -->
 
 </launch>
 

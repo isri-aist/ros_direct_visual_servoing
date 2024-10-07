@@ -103,6 +103,9 @@
     <param name="cameraTopic" type="string" value="/image_resize/image"/>
     <param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
  
+    <param name="rosbagForEVS" type="bool" value="true"/>
+    <param name="cameraPoseTopic" type="string" value="/tf"/>
+    <param name="desiredPoseTopicForEVS" type="string" value="/vs/camera/desired_pose"/>
 
 </launch>
 

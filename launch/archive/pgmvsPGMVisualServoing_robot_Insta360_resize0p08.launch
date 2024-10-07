@@ -5,7 +5,8 @@
   
   <!-- Resize the captured images to reduce the processing time -->
   <node name="image_resize" pkg="nodelet" type="nodelet" args="standalone image_proc/resize" output="screen">
-  	<remap from="image" to="/insta360/equi/image_raw" />
+  	<!-- <remap from="image" to="/insta360/equi/image_raw" /> -->
+    <remap from="image" to="/insta360/right/image_raw" />
   	<param name="scale_width" value="0.16" />
   	<param name="scale_height" value="0.16" />
   </node>
@@ -19,8 +20,9 @@
     <param name="featuresImageTopic" type="string" value="/pgmvs/image_features"/>
     <param name="desiredFeaturesImageTopic" type="string" value="/pgmvs/desired_image_features"/>
 
-    <param name="cameraType" type="int" value="4"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
-    <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/calib_equi_184_92.xml"/>
+    <param name="cameraType" type="int" value="0"/> <!--     Omni: 0, Persp: 1, Equirectangular: 4 -->
+    <!-- <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/insta360_one_x2/calib_equi_184_92.xml"/> -->
+    <param name="cameraXml" type="string" value="$(find ros_dvs_bridge)/config/calib_insta_1.xml"/>
     <param name="lambda_g" type="double" value="3.0"/> 
 
   	<param name="logs" type="string" value="$(env HOME)/.ros/ros_dvs_bridge/"/>
