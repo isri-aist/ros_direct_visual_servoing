@@ -6,7 +6,7 @@
 #include <image_transport/image_transport.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Float32MultiArray.h>
-#include "ros_dvs_bridge/VisualServoing.h"
+//#include "ros_dvs_bridge/VisualServoing.h"
 
 
 #include "tf2_msgs/TFMessage.h"
@@ -168,6 +168,8 @@ private:
 
 		bool m_twoStepVS; 
 		bool m_flagSecondStepVS; //flag for reducing lambda_g only once
+
+		bool saveInitial; 
 		
     std::ofstream m_logfile;
 #ifdef INDICATORS

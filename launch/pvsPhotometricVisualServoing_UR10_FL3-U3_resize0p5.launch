@@ -126,7 +126,7 @@
     <param name="controlInBaseFrame" type="bool" value="true"/>
     <param name="cameraPoseTopic" type="string" value="/tf"/>
 
-    <param name="rosbagForEVS" type="bool" value="true"/>
+    <param name="rosbagForEVS" type="bool" value="false"/>
     <param name="currentPoseTopicForEVS" type="string" value="/vs/camera/current_pose"/>
     
   <!-- </node> -->
