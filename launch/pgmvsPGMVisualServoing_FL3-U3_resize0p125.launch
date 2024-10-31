@@ -25,7 +25,7 @@
     <param name="currentPoseTopicForEVS" type="string" value="/vs/camera/current_pose"/>
 
     
-    <param name="twoStepVS" type="bool" value="false"/>
-    <param name="saveExprimentData" type="bool" value="false"/>
+    <param name="twoStepVS" type="bool" value="true"/>
+    <param name="saveExprimentData" type="bool" value="true"/>
 
 </launch>

@@ -49,6 +49,7 @@ public:
 		~pgmvsPGMVisualServoing();
 
 		void initVisualServoTask();
+		bool initial();
 
 		void imageCallback(const sensor_msgs::ImageConstPtr& image); 
 
@@ -73,6 +74,9 @@ private:
 	image_transport::Publisher m_featuresImage_pub;
 	image_transport::Publisher m_desiredFeaturesImage_pub;
 		ros::Publisher m_velocity_pub;
+
+		ros::ServiceClient client; 
+		ros::ServiceServer service;
 
 		ros::Subscriber m_camPose_sub; 
 		vpVelocityTwistMatrix m_bVt;
@@ -109,6 +113,8 @@ private:
 
 		vpImage<unsigned char> m_difference_image;
 		vpImage<unsigned char> m_difference_pgm;
+
+		vpImage<unsigned char> m_initial_image;
 
 		double DIFF_VELO;
 		double RESIDUAL_THRESHOLD;  
@@ -151,6 +157,7 @@ private:
 		bool m_dofs[6];
 		vpColVector m_v, m_v6;
 		double m_normError;
+		double m_normError_treshold;
 
 		unsigned int nbDOF, numDOF, indDOF;
 
@@ -189,6 +196,8 @@ private:
 
     bool m_rosbagForEVS;
     string m_currentPoseTopicForEVS;
+
+	bool initialized_m_bMt;
 
 };
 

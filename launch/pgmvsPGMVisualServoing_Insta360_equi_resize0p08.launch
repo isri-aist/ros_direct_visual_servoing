@@ -26,6 +26,6 @@
 
     
     <param name="twoStepVS" type="bool" value="false"/>
-    <param name="saveExprimentData" type="bool" value="false"/>
+    <param name="saveExprimentData" type="bool" value="true"/>
 
 </launch>

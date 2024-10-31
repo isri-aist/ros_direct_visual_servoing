@@ -1,0 +1,4 @@
+string desired_image_path
+string init_image_path
+---
+float64 lambda_g

@@ -12,7 +12,7 @@ Tested under `Ubuntu 20.04` and `ROS Noetic`
 
 ## camera drivers
 
-- `spinnaker`: to use Flir camera (Spinnaker SDK Download, version 3.1.0.79 tested: `https://www.flir.eu/products/spinnaker-sdk/?vertical=machine+vision&segment=iis`, create an account and click on Download (Login required))
+- `spinnaker`: to use Flir camera (Spinnaker SDK Download, version 3.1.0.79 tested: https://www.flir.eu/products/spinnaker-sdk/?vertical=machine+vision&segment=iis, create an account and click on Download (Login required))
 - `insta360`: to use Insta360 ONE X2 (http://mis.u-picardie.fr/~g-caron/softs/20220909_insta360_SDK_linux.tar.gz and add udev rule `SUBSYSTEM=="usb", ATTR{idVendor}=="2e1a", ATTR{idProduct}=="0002", MODE="0666"`)
 
 If unclear checkout [this](https://thomasduvinage.github.io/wiki/documentation/Camera/Insta360/)
@@ -39,6 +39,7 @@ sudo apt install ros-noetic-ros-controllers-cartesian
 - `libPeR`: to use the PGM VS (https://github.com/PerceptionRobotique/libPeR). When running `catkin_make`, mind to pass the additional `cmake` parameters `-DUSE_PER=True` to make use of libPeR (otherwise PGM VS will not be available) and `-DPER_DIR=/path/to/libPeR/install/dir` to allow finding the libPeR library (in that order)
 
 - `evo`: to evaluate and compare ideal and actual trajectory from the evs generated ROS bag (https://github.com/MichaelGrupp/evo)
+- `differentiableImage`: to compute the initial lambda_g based on the differentiability of desired and starting image (https://github.com/GuicarMIS/differentiableImage/tree/toDual). If you don't want to use this, remove it in the cmake. 
 
 # How to run on UR10 and UR5e
 
@@ -83,7 +84,7 @@ The path to and the .xml itself `insta360_one_x2/calib_equi_184_92.xml` must be 
 
 Examples:
 
- - The [FL3-U3-13E4C](https://www.teledynevisionsolutions.com/products/flea3-usb3/?model=FL3-U3-13E4C-C&vertical=machine%20vision&segment=iis) has a resolution of 1280 × 1024 pixels. With a camera binning of 2 and a resize of 0.125, this leads to `calib_persp_80_64.xml`. Note that the resizing can be with the [image_proc](http://wiki.ros.org/image_proc) package
+- The [FL3-U3-13E4C](https://www.teledynevisionsolutions.com/products/flea3-usb3/?model=FL3-U3-13E4C-C&vertical=machine%20vision&segment=iis) has a resolution of 1280 × 1024 pixels. With a camera binning of 2 and a resize of 0.125, this leads to `calib_persp_80_64.xml`. Note that the resizing can be with the [image_proc](http://wiki.ros.org/image_proc) package
 - The Insta360 ONE X2 has a resolution of 2304 x 1152 for the equirectangular image leading to `calib_equi_184_92.xml` for a resizing of 0.08. For using the `ros_insta360` package, apply the resizing in the package launch, to save computation time for calculating the equirectangular image.
 
 To consider the different field of views of the cameras, the cameraType value in the `VisualServoing.launch` must be adjusted accordingly (hemispherical: 0, Persp: 1, Equirectangular: 4):
@@ -104,6 +105,14 @@ and run
 rosrun rqt_reconfigure rqt_reconfigure
 ```
 Change the default, min, max parameters in the `lambda_g.cfg` and run `catkin_make`. 
+
+#### Differentiable Image
+
+While captuing the desired image and at the beginning of the callback function, a picture will be stored in the `$HOME/.ros` directory. This images can be used to calculate the initial lambda_g via a rosservice, based on the difference between those two. Run the service with:
+```
+rosrun ros_dvs_bridge lambdaService
+```
+Include a mask for the omnidirectional VS case.
 
 ### PVS
 
@@ -186,8 +195,10 @@ roslaunch ros_dvs_bridge pgmvsPGMVisualServoing_Insta360_equi_resize0p08.launch
 
 ##### Evaluation PGMVS
 
-- Use `rqt_image_view` to check the difference in desired and current image and image features 
+- Use `rqt_image_view` to check the difference in desired and current image and image features
 - Use `rqt_plot` to check the residuals (`/costTopic`) and velocity (`/twist_controller/command/angular` and `/twist_controller/command/linear`)
+- To save the experiment data in a folder automatically after a vs task set `<param name="saveExprimentData" type="bool" value="true"/>` in the launch
+- To change the lambda_g and gain automatically at convergence either use the dynamic_reconfigure manually or set `<param name="twoStepVS" type="bool" value="true"/>` and adjust the treshold for the velocity/residuals
 - Use `evs-evo` to evaluate the desired and actual trajectory path after the vs task (Note: convert the rosbag into tum file format to plot multiple vs tasks in one plot)
 
 <!-- 

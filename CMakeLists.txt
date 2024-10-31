@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
+find_package(DifferentiableImage REQUIRED)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -42,11 +44,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  diff_lambda.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -60,6 +61,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  sensor_msgs
 )
 
 # Generate dynamic reconfigure parameters in the 'cfg' folder
@@ -158,6 +160,14 @@ target_link_libraries(${PROJECT_NAME}_pvsVisualServoing ${catkin_LIBRARIES})
 add_executable(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired src/PGM-visual-servoing/pgmvsCaptureAndSaveDesired.cpp src/PGM-visual-servoing/pgmvsDesiredImageManager.cpp)
 target_link_libraries(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired ${catkin_LIBRARIES})
 
+#creates the desired image saver for MPPVS
+add_executable(${PROJECT_NAME}_mppvsCaptureAndSaveDesired src/MPP-visual-servoing/mppvsCaptureAndSaveDesired.cpp src/MPP-visual-servoing/mppvsDesiredImageManager.cpp)
+target_link_libraries(${PROJECT_NAME}_mppvsCaptureAndSaveDesired ${catkin_LIBRARIES})
+
+#Service for calculating initial lambda_g 
+add_executable(lambdaService src/PGM-visual-servoing/lambdaService.cpp)
+target_link_libraries(lambdaService ${catkin_LIBRARIES} DifferentiableImage)
+
 
 #creates the visual servoer for PGMVS
 # if(${USE_PER})
@@ -169,8 +179,10 @@ target_link_libraries(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired ${catkin_LIBRAR
   find_package(VISP REQUIRED)
 
   add_executable(${PROJECT_NAME}_pgmvsVisualServoing src/PGM-visual-servoing/pgmvsVisualServoing.cpp src/PGM-visual-servoing/pgmvsPGMVisualServoing.cpp)
+  add_executable(${PROJECT_NAME}_mppvsVisualServoing src/MPP-visual-servoing/mppvsVisualServoing.cpp src/MPP-visual-servoing/mppvsMPPVisualServoing.cpp)
 
   target_link_libraries(${PROJECT_NAME}_pgmvsVisualServoing ${catkin_LIBRARIES})
+  target_link_libraries(${PROJECT_NAME}_mppvsVisualServoing ${catkin_LIBRARIES})
 # endif()
 
 #make sure configure headers are built before any node using them

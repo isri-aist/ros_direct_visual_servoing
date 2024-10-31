@@ -1,13 +1,10 @@
 #include "pgmvsPGMVisualServoing.h"
+#include "ros_dvs_bridge/diff_lambda.h" //service header
 
 #include <visp/vpIoTools.h>
 #include <visp/vpImageIo.h>
 #include <visp/vpImageTools.h>
 
-//
-#include <opencv2/opencv.hpp>
-#include <opencv2/photo.hpp>
-//
 #include <iostream>
 
 #include <geometry_msgs/PoseStamped.h>
@@ -18,11 +15,11 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 	  m_v(6), m_v6(6), m_normError(1e12), m_pub_diffImage(false),  m_pub_diffFeaturesImage(false),
 	  m_pub_featuresImage(false), m_pub_desiredFeaturesImage(false), _camera(nullptr),
 	  updateSampler(true), poseJacobianCompute(true), robust(false),
-	  nbDOF(6), m_flagSecondStepVS(false), DIFF_VELO(1e-3), RESIDUAL_THRESHOLD(1e-4)
+	  nbDOF(6), m_flagSecondStepVS(false), DIFF_VELO(1e-3), RESIDUAL_THRESHOLD(1e-4), saveInitial(false), m_normError_treshold(1e12), initialized_m_bMt(false)
 {
     string cameraTopic, robotTopic, cameraPoseTopic, diffTopic, featuresDiffTopic, camxml, cam2tool, costTopic, velocityTopic;
 	string desiredFeaturesImageTopic, featuresImageTopic;
-	double f, ku;
+	double f, ku, initial_lambda_g;
 	int camtyp;	 
 
     m_nh.param("cameraTopic", cameraTopic, string(""));
@@ -36,7 +33,7 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 	m_nh.param("cameraType", camtyp, int(1)); //1: Perspective (same numbering as libPeR's CameraModelType)
     m_nh.param("cameraXml", camxml, string(""));
 	m_nh.param("camera2tool", cam2tool, string(""));
-	m_nh.param("lambda_g", m_lambda_g, double(1.0));
+	// m_nh.param("lambda_g", m_lambda_g, double(1.0));
     m_nh.param("sceneDepth", m_sceneDepth, double(1.0));
     m_nh.param("controlInBaseFrame", m_controlInBaseFrame, false);
     m_nh.param("cameraPoseTopic", cameraPoseTopic, string(""));
@@ -192,7 +189,6 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
     m_image_sub = m_it.subscribe(cameraTopic, 1, &pgmvsPGMVisualServoing::imageCallback, this);
 
 	m_velocity_pub = m_nh.advertise<geometry_msgs::Twist>(robotTopic, 1);
-	//m_velocity_pub = m_nh.advertise<ros_dvs_bridge::VisualServoing>(robotTopic, 1);
 
 	if(m_rosbagForEVS)
 	{
@@ -207,18 +203,31 @@ pgmvsPGMVisualServoing::pgmvsPGMVisualServoing()
 
 pgmvsPGMVisualServoing::~pgmvsPGMVisualServoing()
 {
-	if(m_rosbagForEVS)
+	// std::cout << "Im in the destuctor just before" << std::endl;
+
+	m_image_sub.shutdown();
+	if(m_rosbagForEVS && m_vsbag.isOpen())
 	{
+		// std:cout << "Im in the destuctor just before closing the rosbag" << std::endl;
 		m_vsbag.close();
+		std::cout << "rosbag closed" << std::endl;
 	}
+	// std::cout << "Im in the destuctor just before closing the log file" << std::endl;
 	m_logfile.close();
+	// std::cout << "logfile closed" << std::endl;
   	stopRobot();
 
+	m_nh.shutdown();
 }
 
 void
 pgmvsPGMVisualServoing::stopRobot()
 {
+	if (m_saveExperimentData) {
+        saveExperimentData();
+		std::cout << "Experiment Data saved" << std::endl;
+    }
+
 	m_velocity.linear.x = 0;
 	m_velocity.linear.y = 0;
 	m_velocity.linear.z = 0;
@@ -226,10 +235,6 @@ pgmvsPGMVisualServoing::stopRobot()
 	m_velocity.angular.y = 0;
   	m_velocity.angular.z = 0;
 	m_velocity_pub.publish(m_velocity);
-
-	if (m_saveExperimentData) {
-        saveExperimentData();
-    }
 }
 
 void pgmvsPGMVisualServoing::initVisualServoTask()
@@ -238,7 +243,7 @@ void pgmvsPGMVisualServoing::initVisualServoTask()
 	std::string filename_read_image;
   stringstream ss_desired_image;
   
-  ss_desired_image<<m_logs_path<<"/Id"<<".png";
+  ss_desired_image<<m_logs_path<<"/Id_des"<<".png";
   filename_read_image = vpIoTools::path(ss_desired_image.str().c_str());
 
 	try 
@@ -261,6 +266,8 @@ void pgmvsPGMVisualServoing::initVisualServoTask()
     	IP_des = new prRegularlySampledCPImage<unsigned char>(m_height, m_width); //the regularly sample planar image to be set from the acquired/loaded perspective image
     	IP_des->setInterpType(INTERPTYPE);
     	IP_des->buildFrom(m_desired_image, _camera); 
+
+		// IP_des->toAbsZN(); 		//adding normalization of intensities
 
     	GP = new prRegularlySampledCPImage<float>(m_height, m_width); //contient tous les pr2DCartesianPointVec (ou prFeaturePoint) u_g et fera GS_sample.buildFrom(IP_des, u_g);
 
@@ -299,6 +306,8 @@ void pgmvsPGMVisualServoing::initVisualServoTask()
     	IP_cur->setInterpType(INTERPTYPE);
     	IP_cur->buildFrom(m_current_image, _camera); 
 
+		// IP_cur->toAbsZN(); 		//adding normalization of intensities
+
     	fSet_cur.buildFrom(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler); // Goulot !
 
 		m_logfile << "cur built " << m_height << " " << m_width << endl;
@@ -329,6 +338,7 @@ void pgmvsPGMVisualServoing::initVisualServoTask()
   }
 
   t = ros::Time::now();
+  std::cout << "Visual Servoing initialized: " << vsInitialized << std::endl;
 
 }
 
@@ -350,18 +360,44 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 #ifdef INDICATORS
     	double duration = vpTime::measureTimeMs();
 #endif
+		m_current_image = visp_bridge::toVispImage(*image);
 
-   		m_current_image = visp_bridge::toVispImage(*image);
+		if(!saveInitial){
+			// m_normError_treshold = m_normError * 0.2; //setting threshold to 20% of initial residual
+			// std::cout << "normError_treshold: " << m_normError_treshold << std::endl;
+			std::string filename_write_image;
+			stringstream ss_initial_image;
 
-		if((m_current_image.getHeight() == m_height) && (m_current_image.getWidth() == m_width))
-		{
-			IP_cur->buildFrom(m_current_image, _camera); 
+			ss_initial_image<<m_logs_path<<"/Id_init.png";
+			filename_write_image = vpIoTools::path(ss_initial_image.str().c_str());
 
-			fSet_cur.updateMeasurement(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler);  
-			m_logfile << "cur updated" << endl;
+			vpImageIo::write(this->m_current_image, filename_write_image);
+			m_logfile<<"initial_image written to"<<filename_write_image<<endl;
 
-			//Compute control vector
-			m_normError = 0.5*servo.control(fSet_cur, m_v, robust);
+		client = m_nh.serviceClient<ros_dvs_bridge::diff_lambda>("diff_lambda");
+		ros_dvs_bridge::diff_lambda srv;
+		srv.request.desired_image_path = m_logs_path + "/Id_des.png";
+		srv.request.init_image_path = m_logs_path + "/Id_init.png";
+
+		if(client.call(srv)){
+			double initial_lambda_g = srv.response.lambda_g;
+			if (initial_lambda_g >= 5 && camera_type == "perspective" || initial_lambda_g >= 10){
+				m_logfile << "calculated initial lambda_g too high: " << initial_lambda_g << endl;
+				initial_lambda_g = 2.00;
+			} 
+			std::cout << "------------------------------lambda_g: " << initial_lambda_g << std::endl;
+			m_logfile << "calculated initial lambda_g: " << initial_lambda_g << endl;
+ 			updateParameters(initial_lambda_g, m_lambda, m_sceneDepth);
+		}
+		else{
+			ROS_ERROR("Failed to call service diff_lambda");
+		}
+
+			saveInitial = true;	
+
+		}
+
+
 
 			//update the DOFs
 			indDOF = 0;
@@ -373,6 +409,18 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				}
 				else
 					m_v6[numDOF] = 0;
+			
+			if((m_current_image.getHeight() == m_height) && (m_current_image.getWidth() == m_width)){
+			IP_cur->buildFrom(m_current_image, _camera); 
+
+			// IP_cur->toAbsZN(); //adding normalization of intensities
+
+			fSet_cur.updateMeasurement(*IP_cur, *GP, *GP_sample, poseJacobianCompute, updateSampler);  
+			m_logfile << "cur updated" << endl;
+
+			//Compute control vector
+			m_normError = 0.5*servo.control(fSet_cur, m_v, robust);
+			// std::cout << "m_normerror: " << m_normError << std::endl; 
 
 			//---------------test extrinsic camera_calib here-------------------
 			// m_v6 = 0; 
@@ -394,19 +442,24 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 
 				bool stagnant = true; 
 				for(int i = 1; i < MAX_STAGNATION_ITER; ++i) {
-					if(fabs(lastVelocities[i] - lastVelocities[i-1]) > DIFF_VELO ) {
+					if(fabs(lastVelocities[i] - lastVelocities[i-1]) > DIFF_VELO || lastVelocities[i] == 0.0) {
 						stagnant = false;
+						// std::cout << "stagnant: " << stagnant << std::endl;
 						break;
 					}
 				}
 
 
-				if (stagnant && sqrt(m_v6.sumSquare()) < RESIDUAL_THRESHOLD && !m_flagSecondStepVS) {
+				if ( stagnant  && sqrt(m_v6.sumSquare()) < RESIDUAL_THRESHOLD && !m_flagSecondStepVS) { //&& sqrt(m_v6.sumSquare()) < RESIDUAL_THRESHOLD
 					m_logfile << "Residuals stabilized, starting second step of vs task" << std::endl;
 					std::cout << "--------------------Initializing second step of vs--------------------" << std::endl; 
 					// stopRobot();  
-					double new_lambda_g = 0.5; //updating parameters for 2. step
-					double new_lambda = 1;
+
+					double new_lambda_g = 1; //updating parameters for 2. step
+					// if (new_lambda_g <= 0.3){ //otherwise robot crazy 
+					// 	new_lambda_g = 0.5;
+					// }
+					double new_lambda = 0.5;
 					updateParameters(new_lambda_g, new_lambda, m_sceneDepth);
 					m_flagSecondStepVS = true; //set flag true 
 					return;
@@ -415,11 +468,18 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 
 
 
-			if(m_rosbagForEVS) 
+			if(m_rosbagForEVS && initialized_m_bMt) 
 			{
+				if(!initialized_m_bMt){
+				std::cout<<"not initialized"<<std::endl;
+				}
+				
 				geometry_msgs::PoseStamped currentRobotPoseStamped;
+				mutex_bMt.lock();
 				vpTranslationVector t = m_bMt.getTranslationVector();
 				vpQuaternionVector q = vpQuaternionVector(m_bMt.getRotationMatrix());
+				mutex_bMt.unlock();
+				
 
 				currentRobotPoseStamped.header.stamp = ros::Time::now();
 				currentRobotPoseStamped.pose.position.x = t[0];
@@ -431,6 +491,7 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 				currentRobotPoseStamped.pose.orientation.w = q.w();
 				
 				m_vsbag.write(m_currentPoseTopicForEVS, ros::Time::now(), currentRobotPoseStamped);
+			
 			}
 		
 			m_velocity.linear.x = m_v6[0];
@@ -446,7 +507,7 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 			if(m_pub_featuresImage)
 			{
 				fSet_cur.sampler.toImage(PGM_cur_f, pp, _camera);
-				m_logfile << PGM_cur_f.getWidth() << " " << PGM_cur_u.getWidth() << " " << PGM_des_u.getWidth() << endl;
+				m_logfile << PGM_cur_f.getWidth() << " " << PGM_cur_u.getHeight() << endl;
 				vpImageConvert::convert(PGM_cur_f, PGM_cur_u);
 
 				m_featuresImage = visp_bridge::toSensorMsgsImage(PGM_cur_u);
@@ -499,7 +560,7 @@ void pgmvsPGMVisualServoing::imageCallback(const sensor_msgs::ImageConstPtr &ima
 			m_logfile << " v = " << m_v6.t() << std::endl;
 			// ROS_INFO("Speedb updated"); 
 			//std::cout << " v = " << m_v6.t() << std::endl;
-			std::cout << " |v| = " << sqrt(m_v6.sumSquare()) << std::endl;
+			// std::cout << " |v| = " << sqrt(m_v6.sumSquare()) << std::endl;
    		 }
 		else
 		{
@@ -524,6 +585,7 @@ void pgmvsPGMVisualServoing::toolPoseCallback(const tf2_msgs::TFMessage& tf)
     {
 		mutex_bMt.lock();
 		m_bMt = /*visp_bridge::*/toVispHomogeneousMatrix(tf);
+		initialized_m_bMt = true; 
 		mutex_bMt.unlock();
 		
 		vpHomogeneousMatrix bMt = m_bMt;
@@ -543,7 +605,7 @@ void pgmvsPGMVisualServoing::updateParameters(double new_lambda_g, double new_la
 		const std::lock_guard<std::mutex> lock(lambda_mutex);
         std::cout << "Updating lambda_g from " << m_lambda_g << " to " << new_lambda_g << std::endl;
         m_lambda_g = new_lambda_g;
-        vsInitialized = false;
+        // vsInitialized = false;
         initVisualServoTask();
     }
 
@@ -562,19 +624,23 @@ void pgmvsPGMVisualServoing::updateParameters(double new_lambda_g, double new_la
 
 void 
 pgmvsPGMVisualServoing::saveExperimentData(){
+	std::string user_folder_name;
+    std::cout << "Enter the name for the folder: ";
+    std::getline(std::cin, user_folder_name);
+
 	std::string exp;
 	std::stringstream exp_path;
-    exp_path << m_logs_path << "/exp" <<((unsigned)ros::Time::now().toSec()) << camera_type;
+    exp_path << m_logs_path << "/exp" << user_folder_name << camera_type;
 	std::filesystem::create_directories(exp_path.str());
 
 	std::filesystem::copy(m_logs_path + "/velocities.txt", exp_path.str() + "/velocities.txt");
 	std::filesystem::copy(m_logs_path + "/residuals.txt", exp_path.str() + "/residuals.txt");
 	std::filesystem::copy(m_logs_path + "/logfile.txt", exp_path.str() + "/logfile.txt");
 	std::filesystem::copy(m_logs_path + "/times.txt", exp_path.str() + "/times.txt");
+	std::filesystem::copy(m_logs_path + "/Id_des.png", exp_path.str() + "/Id_des.png");
+	std::filesystem::copy(m_logs_path + "/Id_init.png", exp_path.str() + "/Id_init.png");
 
 	std::filesystem::copy(bagFilePath, exp_path.str());
-
-    std::cout << "Experiment Data saved" << std::endl;
 }
 
 
@@ -624,4 +690,3 @@ int pgmvsPGMVisualServoing::errorToImage(vpColVector &e, vpImage<unsigned char> 
 	
 	return 0;
 }
-
