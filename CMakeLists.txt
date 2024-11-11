@@ -160,10 +160,6 @@ target_link_libraries(${PROJECT_NAME}_pvsVisualServoing ${catkin_LIBRARIES})
 add_executable(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired src/PGM-visual-servoing/pgmvsCaptureAndSaveDesired.cpp src/PGM-visual-servoing/pgmvsDesiredImageManager.cpp)
 target_link_libraries(${PROJECT_NAME}_pgmvsCaptureAndSaveDesired ${catkin_LIBRARIES})
 
-#creates the desired image saver for MPPVS
-add_executable(${PROJECT_NAME}_mppvsCaptureAndSaveDesired src/MPP-visual-servoing/mppvsCaptureAndSaveDesired.cpp src/MPP-visual-servoing/mppvsDesiredImageManager.cpp)
-target_link_libraries(${PROJECT_NAME}_mppvsCaptureAndSaveDesired ${catkin_LIBRARIES})
-
 #Service for calculating initial lambda_g 
 add_executable(lambdaService src/PGM-visual-servoing/lambdaService.cpp)
 target_link_libraries(lambdaService ${catkin_LIBRARIES} DifferentiableImage)
@@ -179,10 +175,8 @@ target_link_libraries(lambdaService ${catkin_LIBRARIES} DifferentiableImage)
   find_package(VISP REQUIRED)
 
   add_executable(${PROJECT_NAME}_pgmvsVisualServoing src/PGM-visual-servoing/pgmvsVisualServoing.cpp src/PGM-visual-servoing/pgmvsPGMVisualServoing.cpp)
-  add_executable(${PROJECT_NAME}_mppvsVisualServoing src/MPP-visual-servoing/mppvsVisualServoing.cpp src/MPP-visual-servoing/mppvsMPPVisualServoing.cpp)
 
   target_link_libraries(${PROJECT_NAME}_pgmvsVisualServoing ${catkin_LIBRARIES})
-  target_link_libraries(${PROJECT_NAME}_mppvsVisualServoing ${catkin_LIBRARIES})
 # endif()
 
 #make sure configure headers are built before any node using them
