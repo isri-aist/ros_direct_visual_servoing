@@ -1,8 +1,8 @@
-# ros_dvs_bridge
+# Direct Visual Servoing with libPeR and ROS 
 
 Work done at CNRS-AIST JRL. This package enables the direct visual servoings of https://github.com/jrl-umi3218/DirectVisualServoing to run within a ROS wrapping. 
 
-Authors: Guillaume Caron, Antoine Andre, Belinda Naamani, ...
+Authors: Guillaume Caron, Antoine Andre, Belinda Naamani, Sinta Schulte, Thomas Duvinage, ...
 
 Dates: from January 2023 to ...
 
@@ -13,7 +13,7 @@ Tested under `Ubuntu 20.04` and `ROS Noetic`
 ## camera drivers
 
 - `spinnaker`: to use Flir camera (Spinnaker SDK Download, version 3.1.0.79 tested: https://www.flir.eu/products/spinnaker-sdk/?vertical=machine+vision&segment=iis, create an account and click on Download (Login required))
-- `insta360`: to use Insta360 ONE X2 (http://mis.u-picardie.fr/~g-caron/softs/20220909_insta360_SDK_linux.tar.gz and add udev rule `SUBSYSTEM=="usb", ATTR{idVendor}=="2e1a", ATTR{idProduct}=="0002", MODE="0666"`)
+- `insta360`: to use Insta360 ONE X2 (visit https://www.insta360.com/sdk/apply to apply for the SDK, version of 9 September 2022 tested, install it and add udev rule `SUBSYSTEM=="usb", ATTR{idVendor}=="2e1a", ATTR{idProduct}=="0002", MODE="0666"`)
 
 If unclear checkout [this](https://thomasduvinage.github.io/wiki/documentation/Camera/Insta360/)
 
@@ -21,7 +21,7 @@ If unclear checkout [this](https://thomasduvinage.github.io/wiki/documentation/C
 
 - `flir_camera_driver`: to use Flir camera with ROS (https://github.com/ros-drivers/flir_camera_driver)
 
-- `ros_insta360`: to use Insta360 camera with ROS
+- `ros_insta360`: to use Insta360 camera with ROS (https://github.com/isri-aist/ros_insta360)
 
 - `visp_bridge`: to convert ROS messages to ViSP data formats, mainly grayscale images:
 ```bash 
@@ -36,10 +36,10 @@ sudo apt install ros-noetic-ros-controllers-cartesian
 
 ## external libraries
 
-- `libPeR`: to use the PGM VS (https://github.com/PerceptionRobotique/libPeR). When running `catkin_make`, mind to pass the additional `cmake` parameters `-DUSE_PER=True` to make use of libPeR (otherwise PGM VS will not be available) and `-DPER_DIR=/path/to/libPeR/install/dir` to allow finding the libPeR library (in that order)
+- `libPeR`: to use the PGM VS (https://github.com/PerceptionRobotique/libPeR_base). When running `catkin_make`, mind to pass the additional `cmake` parameters `-DUSE_PER=True` to make use of libPeR (otherwise PGM VS will not be available) and `-DPER_DIR=/path/to/libPeR/install/dir` to allow finding the libPeR library (in that order)
 
 - `evo`: to evaluate and compare ideal and actual trajectory from the evs generated ROS bag (https://github.com/MichaelGrupp/evo)
-- `differentiableImage`: to compute the initial lambda_g based on the differentiability of desired and starting image (https://github.com/GuicarMIS/differentiableImage/tree/toDual). If you don't want to use this, remove it in the cmake. 
+- `differentiableImage`: to compute the initial lambda_g based on the differentiability of desired and starting image (https://github.com/isri-aist/differentiableImage). If you don't want to use this, remove it in the cmake. 
 
 # How to run on UR10 and UR5e
 
@@ -131,7 +131,7 @@ or
 ```
 roslaunch ros_dvs_bridge ur5e_bringup.launch robot_ip:=192.168.1.4 kinematics_config:=$HOME/AIST_UR5_robot_calibration.yaml
 ```
-and run the External Control URCap on the robot controller (Note: these launch files come from the [ur_robot_driver](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/tree/master/ur_robot_driver/launch), but modified to start only the `twist_controller`, thus shipped with `ros_dvs_bridge`)
+and run the External Control URCap on the robot controller (Note: these launch files come from the [ur_robot_driver](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/tree/master/ur_robot_driver/launch), but modified to start only the `twist_controller`, thus shipped with this repository)
 
 
 #### For Photometric VS (Flir camera with Computar lens)
